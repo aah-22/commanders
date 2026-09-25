@@ -69,7 +69,15 @@ Dockerfiles; `docker-compose.yml`; `db/init/01_roles.sql` (SELECT-only `commande
 `quality-web`, `config-scan`, `gitleaks`, `sonar`, `images` with Trivy + CycloneDX SBOM, `deploy`), CodeQL,
 Dependabot.
 
-## §5 Data model and ingest (phase 1)
+## §5 Data model and ingest (phase 1, built)
+
+Implemented as `ingest/sources.py` (asset → release URL, natural key, kept columns), `ingest/loaders.py` (pure
+polars transforms, unit-tested on synthetic frames), `ingest/upsert.py` (`INSERT … ON CONFLICT DO UPDATE` in 5k-row
+chunks; SQLite for tests), `ingest/lineage.py` (MLflow no-op-when-unreachable tracker, a `log_input` dataset per
+source) and `ingest/run.py` (`--nightly` | `--full --seasons 2016-2026` | `--season N --jobs a,b`). Tables live in
+`db/schema.py` (`MIRRORS`), migration `0002`. Each asset's digest is kept in `ops.dataset_versions`, so an unchanged
+file is skipped and still logged; a missing asset (not published yet) is logged as a failed job without sinking the
+run. Design notes that shaped it:
 
 Raw mirrors (idempotent upserts keyed as nflverse keys them): `games` (schedules; game_id), `plays` (pbp; game_id,
 play_id — ~50k rows/season, index on (season, posteam), (season, defteam)), `participation` (offense/defense personnel

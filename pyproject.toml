@@ -39,7 +39,7 @@ include = ["api*", "ingest*", "models*", "db*"]
 [tool.ruff]
 line-length = 120
 target-version = "py312"
-extend-exclude = ["web", "db/migrations/versions"]
+extend-exclude = ["web", "build", ".venv"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "S"]
