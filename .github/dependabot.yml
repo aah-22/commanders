@@ -7,7 +7,21 @@ updates:
   - package-ecosystem: npm
     directory: "/web"
     schedule: { interval: weekly }
-    groups: { npm-minor: { update-types: [minor, patch] } }
+    groups:
+      angular-stack:
+        patterns: ["@angular/*", "angular-eslint", "ngx-echarts"]
+        update-types: [minor, patch]
+      npm-minor:
+        patterns: ["*"]
+        exclude-patterns: ["@angular/*", "angular-eslint", "ngx-echarts"]
+        update-types: [minor, patch]
+    ignore:
+      - dependency-name: "@angular/*"
+        update-types: [version-update:semver-major]
+      - dependency-name: "angular-eslint"
+        update-types: [version-update:semver-major]
+      - dependency-name: "ngx-echarts"
+        update-types: [version-update:semver-major]
   - package-ecosystem: github-actions
     directory: "/"
     schedule: { interval: weekly }
