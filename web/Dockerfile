@@ -8,6 +8,9 @@ COPY . .
 RUN npm run build -- --configuration production
 
 FROM nginxinc/nginx-unprivileged:1.29-alpine
+# Pull the base image's OS security fixes (Trivy gates the build on fixable HIGH/CRITICAL findings).
+USER root
+RUN apk upgrade --no-cache
 COPY nginx/nginx.conf /etc/nginx/conf.d/default.conf
 COPY nginx/security-headers.conf /etc/nginx/security-headers.conf
 COPY --from=build /app/dist/web/browser /usr/share/nginx/html
