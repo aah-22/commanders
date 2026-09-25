@@ -3,6 +3,8 @@ synthetic frames through the same code the jobs use); the `fetch_*` wrappers are
 
 from __future__ import annotations
 
+from datetime import date, timedelta
+
 import polars as pl
 
 from ingest.sources import GAME_COLUMNS, PBP_COLUMNS, PLAYER_COLUMNS, PLAYER_STAT_COLUMNS, TEAM_COLUMNS
@@ -136,7 +138,8 @@ def rosters_weekly(df: pl.DataFrame) -> pl.DataFrame:
 
 
 def depth_charts(df: pl.DataFrame, schedule: pl.DataFrame, season: int) -> pl.DataFrame:
-    """Daily snapshots thinned to one per week: the last snapshot dated before each week's first kickoff."""
+    """Daily snapshots thinned to one per week: the last snapshot dated before each week's first kickoff, for the weeks
+    already played and the one coming up (a week further out has no chart of its own yet)."""
     if df.is_empty():
         return df
     weeks = (
@@ -147,10 +150,11 @@ def depth_charts(df: pl.DataFrame, schedule: pl.DataFrame, season: int) -> pl.Da
     )
     snaps = df.with_columns(pl.col("dt").str.slice(0, 10).alias("day"))
     days = snaps.select("day").unique().sort("day")
+    horizon = (date.fromisoformat(days["day"][-1]) + timedelta(days=7)).isoformat()
     rows = []
     for wk, first in weeks.iter_rows():
         before = days.filter(pl.col("day") < str(first))
-        if before.is_empty():
+        if before.is_empty() or str(first) > horizon:
             continue
         rows.append(snaps.filter(pl.col("day") == before["day"][-1]).with_columns(pl.lit(int(wk)).alias("week")))
     if not rows:

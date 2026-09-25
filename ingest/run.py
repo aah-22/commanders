@@ -44,6 +44,7 @@ SEASON_JOBS = [
     "ngs_receiving",
 ]
 GLOBAL_JOBS = ["teams", "players", "contracts", "draft_picks", "trades"]
+REPLACE_PER_SEASON = {"depth_charts"}  # thinned from daily snapshots, so a season is rewritten, not merged
 
 
 def engine():
@@ -95,6 +96,8 @@ class Ingest:
         if prev == d:
             self.skipped.append(f"{name}:{season}" if season else name)
             return 0
+        if name in REPLACE_PER_SEASON and season:  # derived from snapshots: rows can legitimately disappear
+            self.conn.execute(schema.MIRRORS[name].delete().where(schema.MIRRORS[name].c.season == season))
         n = upsert(self.conn, schema.MIRRORS[name], df, key)
         upsert(
             self.conn,

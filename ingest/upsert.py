@@ -10,7 +10,9 @@ import polars as pl
 from sqlalchemy import Table, inspect
 from sqlalchemy.engine import Connection
 
-CHUNK = 5000
+MAX_PARAMS = (
+    30000  # bound parameters per statement: SQLite allows 32766, psycopg 65535; rows per chunk = this / columns
+)
 
 
 def _records(df: pl.DataFrame, columns: list[str]) -> Iterable[dict]:
@@ -26,9 +28,10 @@ def upsert(conn: Connection, table: Table, df: pl.DataFrame, key: list[str]) -> 
         return 0
     df = df.unique(subset=key, keep="last", maintain_order=True)
     dialect = conn.dialect.name
+    chunk = max(1, MAX_PARAMS // len(cols))
     n = 0
-    for start in range(0, df.height, CHUNK):
-        rows = list(_records(df.slice(start, CHUNK), cols))
+    for start in range(0, df.height, chunk):
+        rows = list(_records(df.slice(start, chunk), cols))
         if dialect == "postgresql":
             from sqlalchemy.dialects.postgresql import insert
 
