@@ -8,8 +8,10 @@ Read `docs/commanders-build-guide.md` first; it is the source of truth for archi
 
 - `api/` FastAPI, GET-only, cached (in-process TTL + Cache-Control for Cloudflare), rate-limited per
   `CF-Connecting-IP`, CORS locked to the site; connects to Postgres as the SELECT-only `commanders_ro` role.
-- `ingest/` nflverse (`nflreadpy`) → Postgres jobs (`python -m ingest.run --nightly | --full --seasons 2016-2026`),
-  idempotent upserts on nflverse keys, dataset lineage logged to MLflow. `ingest/derive/` builds the `gm.*` tables.
+- `ingest/` nflverse (`nflreadpy`) → Postgres jobs (`python -m ingest.run --nightly | --full --seasons 2016-2026 |
+  --season N --jobs plays,snap_counts`), idempotent upserts on nflverse keys, per-asset digests in `ops.dataset_versions`,
+  dataset lineage logged to MLflow. Loaders are pure polars transforms (`ingest/loaders.py`), so tests feed synthetic
+  frames through the production path. `ingest/derive/` will build the `gm.*` tables (phase 2+).
 - `models/` MLflow-tracked models (experiment `commanders`, registry alias `champion`, promotion gate = beats champion
   and a naive baseline on hold-out MAE): production projection, acquisition value, position impact.
 - `db/` SQLAlchemy 2.0 ORM (`db/schema.py`) + Alembic migrations (`alembic upgrade head` runs at API start).
