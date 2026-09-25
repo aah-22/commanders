@@ -1,0 +1,14 @@
+<nav class="nav">
+  <a class="logo" href="https://caabi.dev">caabi<span>.dev</span></a>
+  <span class="site">commanders</span>
+  <div class="links">
+    @for (l of links; track l.path) {
+      <a [routerLink]="l.path" routerLinkActive="active">{{ l.label }}</a>
+    }
+  </div>
+</nav>
+<main>
+  <app-freshness-banner />
+  <router-outlet />
+</main>
+<footer>Data: nflverse. Models tracked in MLflow. No betting content. Built as a portfolio piece for caabi.dev.</footer>

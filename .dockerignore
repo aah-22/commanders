@@ -1,0 +1,11 @@
+.git
+.github
+.venv
+web
+tests
+docs
+mlruns
+*.md
+.env*
+__pycache__
+dev.db

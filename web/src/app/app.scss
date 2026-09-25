@@ -1,0 +1,6 @@
+.nav { display: flex; align-items: center; gap: 1.5rem; padding: 0.9rem 1.5rem; border-bottom: 1px solid var(--line); background: var(--panel); }
+.logo { font-weight: 700; color: var(--text); span { color: var(--primary); } }
+.site { color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; font-size: 0.75rem; }
+.links { margin-left: auto; display: flex; gap: 1rem; a { color: var(--muted); } a.active { color: var(--primary); } }
+main { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
+footer { color: var(--muted); font-size: 0.8rem; text-align: center; padding: 2rem 1rem; }

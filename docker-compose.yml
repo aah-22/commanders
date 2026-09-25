@@ -1,0 +1,52 @@
+# Coolify Docker Compose resource `commanders`. Coolify strips `ports:`; the tunnel targets web's internal IP:8080.
+# Every value has a default so an unset Coolify variable never reaches a container as an empty string.
+services:
+  web:
+    build: ./web
+    image: ghcr.io/aah-22/commanders-web:latest
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  api:
+    build: .
+    image: ghcr.io/aah-22/commanders-api:latest
+    environment:
+      - SEASON=${SEASON:-2026}
+      - TEAM=${TEAM:-WAS}
+      - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg://commanders:${POSTGRES_PASSWORD:-commanders}@db:5432/commanders}
+      - DATABASE_URL_RO=${DATABASE_URL_RO:-postgresql+psycopg://commanders_ro:${POSTGRES_RO_PASSWORD:-commanders_ro}@db:5432/commanders}
+      - CORS_ORIGINS=${CORS_ORIGINS:-https://commanders.caabi.dev}
+      - MLFLOW_TRACKING_URI=${MLFLOW_TRACKING_URI:-https://mlflow.caabi.dev}   # http://<mlflow internal ip>:5000 on the Droplet
+      - MLFLOW_EXPERIMENT=${MLFLOW_EXPERIMENT:-commanders}
+      - CF_ACCESS_CLIENT_ID=${CF_ACCESS_CLIENT_ID:-}
+      - CF_ACCESS_CLIENT_SECRET=${CF_ACCESS_CLIENT_SECRET:-}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    volumes:
+      - commanders-cache:/data                     # nflreadpy filesystem cache for the one-off backfill
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_DB=commanders
+      - POSTGRES_USER=commanders
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-commanders}
+      - POSTGRES_RO_PASSWORD=${POSTGRES_RO_PASSWORD:-commanders_ro}
+    volumes:
+      - commanders-pgdata:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro    # creates the SELECT-only commanders_ro role on first start
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U commanders -d commanders"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  commanders-cache:
+  commanders-pgdata:

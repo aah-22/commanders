@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+.venv/
+.env
+dev.db
+mlruns/
+data/
+coverage.xml
+.coverage
+htmlcov/
+.pytest_cache/
+.ruff_cache/
+web/node_modules/
+web/dist/
+web/.angular/
+web/coverage/
