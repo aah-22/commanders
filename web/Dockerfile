@@ -1,6 +1,6 @@
 # Build the Angular app, then serve it from nginx-unprivileged (non-root, port 8080). Coolify strips `ports:`;
 # the tunnel targets this container's internal IP:8080.
-FROM node:22-alpine AS build
+FROM node:25-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
