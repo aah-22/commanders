@@ -21,6 +21,8 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "typescript"
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: "zone.js"  # peer-pinned by @angular/core (~0.15 for Angular 20)
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
   - package-ecosystem: github-actions
     directory: "/"
     schedule: { interval: weekly }
