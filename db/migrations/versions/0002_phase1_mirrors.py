@@ -16,10 +16,20 @@ branch_labels = None
 depends_on = None
 
 NEW_GAME_COLUMNS = {
-    "weekday": sa.String(10), "overtime": sa.Integer, "div_game": sa.Integer, "location": sa.String(8),
-    "temp": sa.Integer, "wind": sa.Integer, "away_qb_id": sa.String(16), "home_qb_id": sa.String(16),
-    "away_qb_name": sa.String(64), "home_qb_name": sa.String(64), "away_coach": sa.String(64),
-    "home_coach": sa.String(64), "away_rest": sa.Integer, "home_rest": sa.Integer,
+    "weekday": sa.String(10),
+    "overtime": sa.Integer,
+    "div_game": sa.Integer,
+    "location": sa.String(8),
+    "temp": sa.Integer,
+    "wind": sa.Integer,
+    "away_qb_id": sa.String(16),
+    "home_qb_id": sa.String(16),
+    "away_qb_name": sa.String(64),
+    "home_qb_name": sa.String(64),
+    "away_coach": sa.String(64),
+    "home_coach": sa.String(64),
+    "away_rest": sa.Integer,
+    "home_rest": sa.Integer,
 }
 NEW_TABLES = [name for name in schema.MIRRORS if name != "games"] + ["dataset_versions"]
 
