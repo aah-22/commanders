@@ -5,6 +5,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 PIP_DISABLE_
     DATA_DIR=/data TZ=America/New_York
 WORKDIR /srv
 
+# Pull the base image's OS security fixes (Trivy gates the build on fixable HIGH/CRITICAL findings).
+RUN apt-get update && apt-get -y upgrade --no-install-recommends && rm -rf /var/lib/apt/lists/*
+
 RUN adduser --disabled-password --gecos "" --uid 10001 app && mkdir -p /data && chown app:app /data
 
 COPY pyproject.toml alembic.ini ./
