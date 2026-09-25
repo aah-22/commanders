@@ -8,6 +8,19 @@ updates:
     directory: "/web"
     schedule: { interval: weekly }
     groups: { npm-minor: { update-types: [minor, patch] } }
+    ignore:
+      # Angular majors move with the Node floor (21+ needs Node >= 22.22.3); upgrade the CLI, core and
+      # angular-eslint together by hand, not one package at a time.
+      - dependency-name: "@angular/*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@angular-eslint/*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "angular-eslint"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "ngx-echarts"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
   - package-ecosystem: github-actions
     directory: "/"
     schedule: { interval: weekly }
