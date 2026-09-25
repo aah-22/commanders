@@ -1,8 +1,9 @@
-"""nflverse → Postgres.  python -m ingest.run --nightly | --full --seasons 2016-2026 [--jobs plays,snap_counts]
+"""nflverse → Postgres.  python -m ingest.run --nightly | --full --seasons 2016-2026 [--jobs plays,snap_counts,derive]
 
 Every table is upserted on its natural key (re-running on unchanged data changes nothing); each asset's digest is
 kept in ops.dataset_versions so an unchanged file is skipped; one MLflow run per invocation records row counts and a
 dataset per source. Season-scoped assets loop per season so memory stays flat (pbp is ~110 MB a season in memory).
+The `derive` job runs last and rebuilds the gm.* tables for each season from the mirrors (never skipped: it is cheap).
 """
 
 from __future__ import annotations
@@ -20,7 +21,7 @@ import polars as pl
 from sqlalchemy import create_engine, text
 
 from db import schema
-from ingest import loaders
+from ingest import derive, loaders
 from ingest.lineage import Tracker
 from ingest.sources import FIRST_SEASON, SOURCES
 from ingest.upsert import upsert
@@ -31,6 +32,7 @@ SEASON_JOBS = [
     "games",
     "plays",
     "player_game_stats",
+    "team_game_stats",
     "snap_counts",
     "rosters_weekly",
     "depth_charts",
@@ -44,6 +46,7 @@ SEASON_JOBS = [
     "ngs_receiving",
 ]
 GLOBAL_JOBS = ["teams", "players", "contracts", "draft_picks", "trades"]
+DERIVE_JOBS = ["derive"]
 REPLACE_PER_SEASON = {"depth_charts"}  # thinned from daily snapshots, so a season is rewritten, not merged
 
 
@@ -168,6 +171,10 @@ class Ingest:
                 loaders.player_game_stats(nfl.load_player_stats([season], summary_level="week")),
                 season,
             )
+        elif name == "team_game_stats":
+            self._write(
+                "team_game_stats", loaders.team_game_stats(nfl.load_team_stats([season], summary_level="week")), season
+            )
         elif name == "snap_counts":
             self._write("snap_counts", loaders.snap_counts(nfl.load_snap_counts([season]), ids), season)
         elif name == "rosters_weekly":
@@ -189,6 +196,12 @@ class Ingest:
             kind = name.split("_")[1]
             self._write(name, loaders.ngs(nfl.load_nextgen_stats([season], stat_type=kind)), season)
 
+    def derive_job(self, season: int) -> None:
+        counts = derive.run_season(self.conn, season)
+        for table, n in counts.items():
+            self.rows[f"{table}_{season}"] = n
+        self.tr.dataset(f"derive-{season}", "derived:gm.team_game_summary,gm.standings", pd.DataFrame([counts]))
+
 
 def parse_seasons(spec: str) -> list[int]:
     if "-" in spec:
@@ -204,7 +217,7 @@ def main(argv: list[str] | None = None) -> dict:
     mode.add_argument("--full", action="store_true", help="backfill --seasons (default 2016-current), filesystem cache")
     mode.add_argument("--season", type=int, help="one season (with --jobs for a targeted refresh)")
     ap.add_argument("--seasons", help="e.g. 2016-2026 or 2024,2025")
-    ap.add_argument("--jobs", help="comma-separated subset of " + ",".join(GLOBAL_JOBS + SEASON_JOBS))
+    ap.add_argument("--jobs", help="comma-separated subset of " + ",".join(GLOBAL_JOBS + SEASON_JOBS + DERIVE_JOBS))
     ap.add_argument("--no-mlflow", action="store_true")
     a = ap.parse_args(argv)
     logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO"), format="%(levelname)s %(name)s %(message)s")
@@ -218,7 +231,7 @@ def main(argv: list[str] | None = None) -> dict:
             else (list(range(FIRST_SEASON, current_season() + 1)) if a.full else [current_season()])
         )
     )
-    jobs = a.jobs.split(",") if a.jobs else GLOBAL_JOBS + SEASON_JOBS
+    jobs = a.jobs.split(",") if a.jobs else GLOBAL_JOBS + SEASON_JOBS + DERIVE_JOBS
     tr = Tracker(not a.no_mlflow)
     t0 = time.time()
     eng = engine()
@@ -247,6 +260,10 @@ def main(argv: list[str] | None = None) -> dict:
                         except Exception as exc:  # noqa: BLE001  — one missing asset (not published yet) must not sink the run
                             log.warning("job %s season %s failed: %s", j, s, str(exc)[:200])
                             detail[f"{j}_{s}"] = str(exc)[:200]
+                if "derive" in jobs:
+                    for s in seasons:
+                        log.info("job derive season %s", s)
+                        ing.derive_job(s)
                 detail.update({"rows": ing.rows, "skipped": ing.skipped})
                 tr.metrics({k: v for k, v in ing.rows.items()})
                 tr.metrics(

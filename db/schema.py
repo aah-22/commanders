@@ -178,7 +178,7 @@ plays = Table(
     Column("play_type", String(24)),
     Column("desc", Text),
     Column("yards_gained", Integer),
-    *_cols("epa success wp wpa air_yards yards_after_catch cpoe xpass"),
+    *_cols("epa qb_epa success wp wpa air_yards yards_after_catch cpoe xpass"),
     *_cols(
         "pass rush qb_dropback qb_scramble qb_kneel qb_spike shotgun no_huddle sack qb_hit interception "
         "fumble_lost touchdown penalty complete_pass incomplete_pass first_down series_success aborted_play",
@@ -234,6 +234,30 @@ player_game_stats = Table(
     ),
     Index("ix_pgs_season_week", "season", "week"),
     Index("ix_pgs_team_season", "team", "season"),
+    schema="nfl",
+)
+
+_tgs_ints = (
+    "season week completions attempts passing_yards passing_tds passing_interceptions sacks_suffered carries rushing_yards "
+    "rushing_tds receptions targets receiving_yards receiving_tds penalties fg_made fg_att pat_made pat_att pt_att"
+)
+team_game_stats = Table(
+    "team_game_stats",
+    metadata,
+    Column("team", String(4), primary_key=True),
+    Column("game_id", String(24), primary_key=True),
+    Column("season_type", String(8)),
+    Column("opponent_team", String(4)),
+    *_cols(
+        "season week completions attempts passing_yards passing_tds passing_interceptions sacks_suffered sack_yards_lost "
+        "sack_fumbles_lost passing_air_yards passing_yards_after_catch passing_first_downs passing_epa passing_cpoe carries "
+        "rushing_yards rushing_tds rushing_fumbles_lost rushing_first_downs rushing_epa receptions targets receiving_yards "
+        "receiving_tds receiving_fumbles_lost receiving_first_downs receiving_epa special_teams_tds def_tackles_for_loss "
+        "def_fumbles_forced def_sacks def_qb_hits def_interceptions def_pass_defended def_tds def_safeties penalties "
+        "penalty_yards fumbles_lost_total fg_made fg_att pat_made pat_att pt_att pt_net_yards",
+        dict.fromkeys(_tgs_ints.split(), Integer),
+    ),
+    Index("ix_tgs_season_week", "season", "week"),
     schema="nfl",
 )
 
@@ -489,6 +513,7 @@ MIRRORS: dict[str, Table] = {
         Game.__table__,
         plays,
         player_game_stats,
+        team_game_stats,
         snap_counts,
         rosters_weekly,
         depth_charts,
@@ -506,3 +531,68 @@ MIRRORS: dict[str, Table] = {
         ngs_receiving,
     )
 }
+
+
+# --------------------------------------------------------------------------- derived (gm.*), rebuilt per season
+# One side's metrics; stored with an off_ prefix (team on offence) and a def_ prefix (team on defence, i.e. allowed).
+SIDE_RATES = (
+    "epa_per_play success_rate explosive_rate pass_epa_per_play rush_epa_per_play dropback_success early_down_epa "
+    "pass_rate proe third_down_conv red_zone_td_rate sack_rate points_per_drive avg_start_yardline nflv_pass_epa "
+    "nflv_rush_epa"
+)
+SIDE_COUNTS = (
+    "plays pass_plays rush_plays dropbacks early_down_plays neutral_plays third_downs rz_trips sacks drives turnovers "
+    "turnovers_on_downs"
+)
+RANKED = {
+    "off": "epa_per_play success_rate explosive_rate proe pass_epa_per_play rush_epa_per_play".split(),
+    "def": "epa_per_play success_rate explosive_rate pass_epa_per_play rush_epa_per_play".split(),
+}
+
+
+def side_columns(prefix: str) -> list[str]:
+    return [f"{prefix}_{c}" for c in (SIDE_RATES + " " + SIDE_COUNTS).split()] + [
+        f"{prefix}_{c}_rank" for c in RANKED[prefix]
+    ]
+
+
+team_game_summary = Table(
+    "team_game_summary",
+    metadata,
+    Column("season", Integer, primary_key=True),
+    Column("week", Integer, primary_key=True),
+    Column("team", String(4), primary_key=True),
+    Column("game_id", String(24), nullable=False),
+    Column("opponent", String(4)),
+    Column("is_home", Boolean),
+    Column("game_type", String(8)),
+    Column("points_for", Integer),
+    Column("points_against", Integer),
+    Column("result", String(1)),
+    Column("week_teams", Integer),
+    *[
+        Column(c, Integer if c.split("_", 1)[1] in SIDE_COUNTS.split() or c.endswith("_rank") else Float)
+        for c in side_columns("off") + side_columns("def")
+    ],
+    Index("ix_tgs_season_team", "season", "team"),
+    Index("ix_tgs_game", "game_id"),
+    schema="gm",
+)
+
+standings = Table(
+    "standings",
+    metadata,
+    Column("season", Integer, primary_key=True),
+    Column("week", Integer, primary_key=True),
+    Column("team", String(4), primary_key=True),
+    Column("conf", String(4)),
+    Column("division", String(16)),
+    *_cols(
+        "wins losses ties games_played pf pa point_diff div_rank conf_rank",
+        dict.fromkeys("wins losses ties games_played pf pa point_diff div_rank conf_rank".split(), Integer),
+    ),
+    *_cols("win_pct pythag_win_pct"),
+    schema="gm",
+)
+
+DERIVED: dict[str, Table] = {t.name: t for t in (team_game_summary, standings)}

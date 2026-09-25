@@ -44,8 +44,11 @@ nflverse (nflreadpy)                           Coolify Compose resource `command
    jobs green, Sonar project, Dependabot. DoD: CI green on main, `docker compose up` serves the page locally.
 1. **Ingest + schema** — alembic migrations, backfill 2016–2026, nightly job, lineage in MLflow. DoD: row counts per
    table logged; `SELECT count(*) FROM nfl.plays WHERE season=2026` matches nflverse.
-2. **Season dashboard** — `team_game_summary`, `/api/season/*`, the dashboard page. DoD: matches nflverse EPA numbers
-   for a known game within rounding.
+2. **Season dashboard** (built) — `gm.team_game_summary` + `gm.standings`, `/api/v1/season/{season}/summary|league|games`,
+   the dashboard page (record strip, EPA trend vs league, league scatter, down × distance heatmap, games table).
+   DoD: every team-game's nflverse-convention passing/rushing EPA matches `nfl.team_game_stats` within 0.01
+   (`tests/test_derive.py`, and `REAL_PBP_DB=… pytest tests/test_derive.py` against a real ingest); warm
+   `/summary` under 50 ms; the page renders 2026 through the latest complete week with league ranks.
 3. **Drive & play explorer** — `/api/games/*`, the explorer page with filters. DoD: any 2026 WAS game browsable.
 4. **GM views + models** — contracts/draft/rosters, `acquisitions`, `positional_need`, three MLflow models with
    promotion gate, report cards + target board pages. DoD: every 2025–26 arrival has a card; targets list has cost,
@@ -84,8 +87,17 @@ play_id — ~50k rows/season, index on (season, posteam), (season, defteam)), `p
 per play), `player_game_stats` (player_id, season, week), `snaps` (pfr_player_id → gsis, game), `rosters_weekly`,
 `draft_picks`, `contracts` (OTC: player, team, apy, guaranteed, years, per-season cap hits, is_active),
 `players` (ids crosswalk from load_ff_playerids + rosters), `teams`.
-Derived (materialised nightly by `ingest/derive.py`): `team_game_summary` (EPA/play, success %, explosive %, early-down
-EPA, red-zone TD %, pressure rate — offense and defense, plus league rank that week), `player_season_production`
+Derived (`ingest/derive/`, rebuilt per season as the last `--nightly` job, delete-then-upsert inside the run's
+transaction): **`gm.team_game_summary`** (built; one row per team-game: offence `off_*` and defence `def_*` = allowed
+— EPA/play, success %, explosive %, pass/rush EPA, dropback success, early-down EPA, pass rate and PROE on neutral
+downs, third-down conversion, red-zone TD %, sack rate, drives, points per drive, average start, turnovers, plus each
+rate's denominator and the rank among the teams that played that week) and **`gm.standings`** (built; cumulative
+regular-season record per team per week, bye weeks carried forward, Pythagorean win %, division/conference rank by
+win % → point differential → points for — not the full NFL tie-breakers). The play filters live in
+`ingest/derive/filters.py`: display metrics use `play_type in (pass, run)`, non-null EPA, no aborted snaps (kneels,
+spikes and penalty no-plays are already outside that); `nflv_pass_epa` / `nflv_rush_epa` reproduce nflverse's
+`stats_team` convention (`qb_epa` over pass + spike, `epa` over run + kneel incl. aborted) purely so the derive can be
+cross-checked against the `nfl.team_game_stats` mirror. Later phases add `player_season_production`
 (per-position production metrics + league percentiles + age), `acquisitions` (WAS arrivals since 2025: how (FA / trade /
 draft / waiver), date, contract at arrival), `positional_need` (per position: starter production vs league median,
 contract years left, age), `model_outputs` (model name/version, player, season, value, run_id).
@@ -121,7 +133,13 @@ Sunday lands overnight; the job re-tries and marks `games.stats_complete`.
 ## §7 API
 ### API (FastAPI, read-only, `GET` only, cached with an in-process TTL + `Cache-Control`, `slowapi` rate limit, CORS
 locked to commanders.caabi.dev; Postgres role `api_ro` with SELECT only)
-`/api/season/{season}/summary` · `/api/season/{season}/games` · `/api/games/{game_id}/drives` ·
+Built (phase 2; nginx strips the `/api` prefix, so the FastAPI paths are `/v1/...`): `/api/v1/season/{season}/summary?team=`
+(standing, per-week rows with the game date, plays-weighted season aggregate with league ranks through the last
+complete week, league weekly EPA quartiles, next game, down × distance success cells), `/api/v1/season/{season}/league`
+(every team's aggregate), `/api/v1/season/{season}/games?team=` (the schedule with each played game's summary).
+`team` must be an upper-case 2–3 letter abbreviation (422 otherwise); an unknown season is 404. Queries are Core
+selects in `api/queries/season.py` with the ≤ 32 × 18-row aggregations in Python, so SQLite and Postgres behave alike.
+Planned: `/api/games/{game_id}/drives` ·
 `/api/games/{game_id}/plays?down=&distance=&personnel=&rz=` · `/api/players/{id}` · `/api/players/{id}/games` ·
 `/api/gm/acquisitions?season=` · `/api/gm/need` · `/api/gm/targets?position=` · `/api/models` (versions, metrics, run
 links) · `/health`.
@@ -129,7 +147,11 @@ links) · `/health`.
 
 ## §8 Angular pages
 ### Angular (v20, standalone + signals, ngx-echarts; routes = pages)
-`/` Season dashboard (record & points, EPA/success trend vs league, offense/defense tiles, next opponent),
+`/season` Season dashboard (built: `features/season/` — `RecordStrip` six tiles, `EpaTrendChart` offence/defence by
+week over the league median and inter-quartile band with bye weeks as gaps, `LeagueScatterChart` offence vs defence
+EPA with WAS highlighted and median lines, `DownDistanceHeatmap` success-rate gap to the league with thin cells
+dimmed, `GameResultsTable`; every chart has a table twin under "Table view"; ECharts registered once in
+`core/echarts-setup.ts` for the app and the specs; fixtures in `features/season/testing/`),
 `/games/:id` Drive & play explorer (drive chart, EPA by down/distance heatmap, personnel/formation filters, play table),
 `/players/:id` Player page (game log, percentiles, contract), `/gm/acquisitions` report cards (production vs cost,
 sortable), `/gm/targets` target board (need index by position, ranked targets with cost/age/production), `/about`
@@ -158,6 +180,9 @@ Deployment steps live in `docs/DEPLOY.md`.
 ## §10 Runbook
 - Nightly: `nightly-ingest` 05:10 ET, `nightly-score` 06:30 ET; weekly `weekly-train` / `weekly-evaluate` Tue 07:00.
 - Re-derive a season after a code change: `python -m ingest.run --season 2026 --jobs derive`.
+- After deploying phase 2 on a database ingested before it: `python -m ingest.run --season 2026 --jobs plays,team_game_stats,derive`
+  (re-ingests plays so `qb_epa` is populated; the cross-check columns stay null for seasons not re-ingested) and
+  `python -m ingest.run --full --jobs team_game_stats,derive` for the earlier seasons.
 - A red `nightly-ingest` is usually nflverse not having published yet: the job retries next night; the site's
   freshness banner shows the week the data runs through.
 
@@ -174,6 +199,11 @@ is a nickname or `A/B` string and carries a nested `season_history` (unnest, dro
 advanced stats and trades are keyed by `pfr_id` (crosswalk via `load_players`); `load_depth_charts` is daily
 snapshots (thin to one per week); cache API is `nflreadpy.config.update_config(cache_mode=..., cache_dir=...)`.
 Angular's CLI 21 needs Node ≥ 22.22.3; the project pins Angular 20 (Node 22.x) — upgrade both together.
+Reconciling team EPA with nflverse (verified on all 66 2026 team-games): `stats_team.rushing_epa` is `sum(epa)` over
+`play_type in (run, qb_kneel)` including aborted snaps, and `passing_epa` is `sum(qb_epa)` (not `epa`) over
+`play_type in (pass, qb_spike)` — the two differ on completed passes fumbled away. The `pass`/`rush` flags include
+penalty no-plays and exclude scrambles, so they are never the base filter. Three weeks in, ranks swing a lot: the
+page prints "of N" beside every rank and dims down × distance cells under 10 plays.
 
 ## §12 What to show on caabi.dev
 The season dashboard and a target board screenshot; a paragraph on the MLflow lineage (every number on the site
