@@ -13,7 +13,7 @@ from slowapi.middleware import SlowAPIMiddleware
 
 from api.config import get_settings
 from api.ratelimit import limiter
-from api.routers import meta
+from api.routers import meta, season
 
 logging.basicConfig(level=get_settings().log_level)
 
@@ -33,6 +33,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(meta.router)
+app.include_router(season.router)
 
 
 @app.exception_handler(RateLimitExceeded)

@@ -47,7 +47,12 @@ Rate-limit rule on `/api/*` (e.g. 300 req/min per IP) as a second layer behind t
 curl -sI https://commanders.caabi.dev/healthz | head -1     # 200
 curl -s  https://commanders.caabi.dev/api/ready               # {"status":"ok","database":true}
 curl -s  https://commanders.caabi.dev/api/v1/meta/freshness   # season/week the data runs through
+curl -s  https://commanders.caabi.dev/api/v1/season/2026/summary | head -c 400   # standing + weekly rows for WAS
 ```
+Migrations run at API start (`0003` adds `nfl.team_game_stats`, `gm.team_game_summary`, `gm.standings` and
+`plays.qb_epa`). On a database ingested before phase 2, run once from the resource terminal:
+`python -m ingest.run --season 2026 --jobs plays,team_game_stats,derive` (fills `qb_epa`), then
+`python -m ingest.run --full --jobs team_game_stats,derive`. The nightly run derives on its own from then on.
 Loki: `{job="docker"} |= "ingest complete"`.
 
 ## 5. Ops notes

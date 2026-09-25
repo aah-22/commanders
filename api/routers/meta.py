@@ -5,11 +5,12 @@ from __future__ import annotations
 import logging
 
 from fastapi import APIRouter, Request, Response
-from sqlalchemy import text
+from sqlalchemy import func, select
 
 from api import db
 from api.cache import cached
 from api.config import get_settings
+from db import schema
 
 log = logging.getLogger(__name__)
 router = APIRouter(tags=["meta"])
@@ -32,19 +33,20 @@ async def freshness(request: Request, response: Response) -> dict:
     """Latest ingest run and the season/week the data runs through (empty until the first ingest)."""
     s = get_settings()
     out = {"season": s.season, "team": s.team, "last_ingest": None, "through_week": None}
+    runs, games = schema.PipelineRun.__table__, schema.Game.__table__
     try:
         with db.engine().connect() as c:
             row = c.execute(
-                text(
-                    "SELECT finished_at, detail FROM ops.pipeline_runs WHERE kind='ingest' AND status='ok' ORDER BY finished_at DESC LIMIT 1"
-                )
+                select(runs.c.finished_at)
+                .where(runs.c.kind == "ingest", runs.c.status == "ok")
+                .order_by(runs.c.finished_at.desc())
+                .limit(1)
             ).first()
             if row:
                 out["last_ingest"] = str(row[0])
-            wk = c.execute(
-                text("SELECT max(week) FROM nfl.games WHERE season=:s AND result IS NOT NULL"), {"s": s.season}
+            out["through_week"] = c.execute(
+                select(func.max(games.c.week)).where(games.c.season == s.season, games.c.result.is_not(None))
             ).scalar()
-            out["through_week"] = wk
-    except Exception as exc:  # noqa: BLE001  (no schema yet, or sqlite in tests)
+    except Exception as exc:  # noqa: BLE001  (no schema yet)
         log.info("freshness unavailable: %s", exc)
     return out

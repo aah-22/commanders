@@ -7,7 +7,14 @@ from datetime import date, timedelta
 
 import polars as pl
 
-from ingest.sources import GAME_COLUMNS, PBP_COLUMNS, PLAYER_COLUMNS, PLAYER_STAT_COLUMNS, TEAM_COLUMNS
+from ingest.sources import (
+    GAME_COLUMNS,
+    PBP_COLUMNS,
+    PLAYER_COLUMNS,
+    PLAYER_STAT_COLUMNS,
+    TEAM_COLUMNS,
+    TEAM_GAME_STAT_COLUMNS,
+)
 
 INT_PLAY_COLUMNS = [
     "play_id",
@@ -117,6 +124,37 @@ def player_game_stats(df: pl.DataFrame) -> pl.DataFrame:
             "targets",
             "receiving_yards",
             "receiving_tds",
+        ],
+    )
+
+
+def team_game_stats(df: pl.DataFrame) -> pl.DataFrame:
+    """nflverse team-week stats, the independent cross-check for the derived team_game_summary."""
+    out = _keep(df, TEAM_GAME_STAT_COLUMNS).filter(pl.col("game_id").is_not_null() & pl.col("team").is_not_null())
+    return _ints(
+        out,
+        [
+            "season",
+            "week",
+            "completions",
+            "attempts",
+            "passing_yards",
+            "passing_tds",
+            "passing_interceptions",
+            "sacks_suffered",
+            "carries",
+            "rushing_yards",
+            "rushing_tds",
+            "receptions",
+            "targets",
+            "receiving_yards",
+            "receiving_tds",
+            "penalties",
+            "fg_made",
+            "fg_att",
+            "pat_made",
+            "pat_att",
+            "pt_att",
         ],
     )
 

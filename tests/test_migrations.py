@@ -16,4 +16,7 @@ def test_alembic_upgrade_head_from_scratch(tmp_path):
 
     with sa.create_engine(url).connect() as c:
         names = set(sa.inspect(c).get_table_names())
-    assert {"games", "pipeline_runs"} <= names
+    assert {"games", "pipeline_runs", "team_game_stats", "team_game_summary", "standings"} <= names
+    with sa.create_engine(url).connect() as c:
+        cols = {col["name"] for col in sa.inspect(c).get_columns("plays")}
+    assert "qb_epa" in cols
