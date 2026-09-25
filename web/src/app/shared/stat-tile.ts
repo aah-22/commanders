@@ -15,7 +15,7 @@ import { Component, input } from '@angular/core';
   styles: `
     .tile { text-align: left; }
     .label { color: var(--muted); font-size: 0.8rem; }
-    .value { font-size: 1.8rem; font-weight: 600; color: var(--primary); }
+    .value { font-size: 1.8rem; font-weight: 600; color: var(--heading); }
     .delta { color: var(--muted); font-size: 0.85rem; }
   `,
 })

@@ -1,14 +1,24 @@
-<nav class="nav">
-  <a class="logo" href="https://caabi.dev">caabi<span>.dev</span></a>
-  <span class="site">commanders</span>
-  <div class="links">
-    @for (l of links; track l.path) {
-      <a [routerLink]="l.path" routerLinkActive="active">{{ l.label }}</a>
+<div class="wrap">
+  <nav class="caabi-nav">
+    <a class="logo" href="https://caabi.dev">
+      <img src="logo-64.png" alt="" width="28" height="28" />
+      <span>caabi<span class="accent">.dev</span></span>
+    </a>
+    <div class="links">
+      @for (l of siteLinks; track l.url) {
+        <a [href]="l.url" [class.active]="l.active" [attr.target]="l.active ? null : '_blank'" rel="noopener">{{ l.label }}</a>
+      }
+    </div>
+  </nav>
+  <nav class="pages">
+    <span class="caabi-kicker">Front office</span>
+    @for (p of pages; track p.path) {
+      <a [routerLink]="p.path" routerLinkActive="active">{{ p.label }}</a>
     }
-  </div>
-</nav>
-<main>
-  <app-freshness-banner />
-  <router-outlet />
-</main>
-<footer>Data: nflverse. Models tracked in MLflow. No betting content. Built as a portfolio piece for caabi.dev.</footer>
+  </nav>
+  <main>
+    <app-freshness-banner />
+    <router-outlet />
+  </main>
+  <footer>Data: nflverse · models tracked in MLflow · no betting content · a caabi.dev portfolio piece</footer>
+</div>

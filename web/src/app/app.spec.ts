@@ -13,11 +13,11 @@ describe('App', () => {
     }).compileComponents();
   });
 
-  it('renders the navigation with the four front-office pages', () => {
+  it('renders the caabi.dev chrome and the four front-office pages', () => {
     const fixture = TestBed.createComponent(App);
     fixture.detectChanges();
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    for (const label of ['Season', 'Drives & plays', 'Acquisitions', 'Targets']) {
+    for (const label of ['caabi', 'Anchor', 'Fantasy', 'MLflow', 'Season', 'Drives & plays', 'Acquisitions', 'Targets']) {
       expect(text).toContain(label);
     }
   });

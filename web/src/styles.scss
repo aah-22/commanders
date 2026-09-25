@@ -1,22 +1,27 @@
-/* caabi.dev palette: gold on near-black, panels one step lighter. Charts pick the same tokens up in core/echarts-theme.ts. */
+/* caabi.dev palette (my-startup-app/frontend/src/app/portfolio.ts, also lineup/ui.py): #0a0a0a page, #111 cards,
+   #1a1a1a borders, gold #c9a233 accent, burgundy #8b1a2b kicker / active underline, #888 muted text. */
 :root {
   --bg: #0a0a0a;
   --panel: #111111;
-  --panel-2: #181818;
-  --line: #262626;
-  --text: #e8e6e1;
-  --muted: #9a978f;
-  --primary: #c9a233;
-  --primary-dim: #8f7324;
-  --burgundy: #5a1414;
+  --panel-2: #161616;
+  --line: #1a1a1a;
+  --line-2: #2a2a2a;
+  --text: #e0e0e0;
+  --heading: #ffffff;
+  --muted: #888888;
+  --gold: #c9a233;
+  --burgundy: #8b1a2b;
   --good: #4caf7d;
   --bad: #d9534f;
 }
 * { box-sizing: border-box; }
-html, body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 "Inter", system-ui, sans-serif; }
-a { color: var(--primary); text-decoration: none; }
-h1, h2, h3 { font-weight: 600; letter-spacing: -0.01em; margin: 0 0 0.5rem; }
-.kicker { color: var(--burgundy); text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.12em; font-weight: 700; }
-.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 1rem 1.25rem; }
+html, body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 "Segoe UI", system-ui, -apple-system, sans-serif; }
+a { color: var(--gold); text-decoration: none; }
+h1, h2, h3 { color: var(--heading); letter-spacing: -0.5px; margin: 0 0 0.5rem; }
+h1 { font-weight: 700; }
+.caabi-kicker { color: var(--burgundy); font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 2px; margin: 0 0 0.25rem; }
+.muted { color: var(--muted); }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 1rem 1.25rem; }
 .grid { display: grid; gap: 1rem; }
 @media (min-width: 900px) { .grid.cols-2 { grid-template-columns: 1fr 1fr; } .grid.cols-4 { grid-template-columns: repeat(4, 1fr); } }
+@media (max-width: 640px) { h1 { font-size: 1.6rem; line-height: 1.2; } h2 { font-size: 1.15rem; } .caabi-kicker { font-size: 0.75rem; letter-spacing: 1.5px; } }
