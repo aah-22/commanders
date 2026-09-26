@@ -16,7 +16,7 @@ const THIN = 10; // cells with fewer team plays are dimmed and labelled with the
   template: `
     <div class="panel">
       <h2>Success rate by down and distance</h2>
-      <p class="muted">Offence, season to date. Colour is the gap to the league rate; the label is the team's rate. Cells under {{ thin }} plays are dimmed.</p>
+      <p class="muted">offense, season to date. Colour is the gap to the league rate; the label is the team's rate. Cells under {{ thin }} plays are dimmed.</p>
       @if (cells().length) {
         <div class="chart" echarts [options]="options()" theme="caabi" [autoResize]="true"></div>
         <details>

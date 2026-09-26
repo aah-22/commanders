@@ -11,9 +11,9 @@ Requires-Dist: sqlalchemy<3,>=2.0
 Requires-Dist: psycopg[binary]<4,>=3.2
 Requires-Dist: alembic<2,>=1.13
 Requires-Dist: mlflow-skinny<4,>=3.0
-Requires-Dist: pandas<3,>=2.2
+Requires-Dist: pandas<4,>=2.2
 Requires-Dist: pyarrow>=16
-Requires-Dist: cachetools<7,>=5.3
+Requires-Dist: cachetools<8,>=5.3
 Requires-Dist: slowapi<1,>=0.1.9
 Requires-Dist: orjson>=3.10
 Provides-Extra: pipeline

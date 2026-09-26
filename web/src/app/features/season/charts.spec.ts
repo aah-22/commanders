@@ -47,9 +47,9 @@ describe('season charts', () => {
     fixture.componentRef.setInput('throughWeek', 3);
     fixture.detectChanges();
     const series = (fixture.componentInstance.options()['series'] as Series[]).map((s) => [s.name, s.data]);
-    const offence = series.find(([n]) => n === 'Offence')?.[1] as (number | null)[];
-    expect(offence).toEqual([0.06, null, 0.103]);
-    expect(series.map(([n]) => n)).toEqual(['band-lo', 'band', 'League median', 'Offence', 'Defence (allowed)']);
+    const offense = series.find(([n]) => n === 'offense')?.[1] as (number | null)[];
+    expect(offense).toEqual([0.06, null, 0.103]);
+    expect(series.map(([n]) => n)).toEqual(['band-lo', 'band', 'League median', 'offense', 'defense (allowed)']);
     expect(fixture.nativeElement.querySelectorAll('tbody tr').length).toBe(3);
   });
 

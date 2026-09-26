@@ -4,20 +4,20 @@ import type { EChartsCoreOption } from 'echarts/core';
 import { LeagueWeek, TeamGameSummary } from '../../core/api.service';
 import { fmtEpa } from '../../core/format';
 
-/** Offence and defence EPA/play by week against the league median and inter-quartile band; bye weeks stay gaps. */
+/** offense and defense EPA/play by week against the league median and inter-quartile band; bye weeks stay gaps. */
 @Component({
   selector: 'app-epa-trend-chart',
   imports: [NgxEchartsDirective],
   template: `
     <div class="panel">
       <h2>EPA per play by week</h2>
-      <p class="muted">Gold: offence. Burgundy: defence (EPA allowed, lower is better). Grey band: league offence 25th–75th percentile.</p>
+      <p class="muted">Gold: offense. Burgundy: defense (EPA allowed, lower is better). Grey band: league offense 25th–75th percentile.</p>
       @if (weeks().length) {
         <div class="chart" echarts [options]="options()" theme="caabi" [autoResize]="true"></div>
         <details>
           <summary class="muted">Table view</summary>
           <table>
-            <thead><tr><th>Week</th><th>Offence</th><th>Defence</th><th>League median</th></tr></thead>
+            <thead><tr><th>Week</th><th>offense</th><th>defense</th><th>League median</th></tr></thead>
             <tbody>
               @for (r of rows(); track r.week) {
                 <tr><td>{{ r.week }}</td><td>{{ fmt(r.off) }}</td><td>{{ fmt(r.def) }}</td><td>{{ fmt(r.median) }}</td></tr>
@@ -69,15 +69,15 @@ export class EpaTrendChart {
     return {
       grid: { left: 52, right: 16, top: 36, bottom: 40 },
       tooltip: { trigger: 'axis', valueFormatter: (v: number | null) => fmtEpa(v) },
-      legend: { top: 0, data: ['Offence', 'Defence (allowed)', 'League median'] },
+      legend: { top: 0, data: ['offense', 'defense (allowed)', 'League median'] },
       xAxis: { type: 'category', data: rows.map((r) => `Wk ${r.week}`) },
       yAxis: { type: 'value', name: 'EPA / play', axisLabel: { formatter: (v: number) => fmtEpa(v, 2) } },
       series: [
         { name: 'band-lo', type: 'line', stack: 'band', data: rows.map((r) => r.p25), lineStyle: { opacity: 0 }, symbol: 'none', silent: true, tooltip: { show: false } },
         { name: 'band', type: 'line', stack: 'band', data: band, lineStyle: { opacity: 0 }, areaStyle: { color: '#888888', opacity: 0.12 }, symbol: 'none', silent: true, tooltip: { show: false } },
         { name: 'League median', type: 'line', data: rows.map((r) => r.median), lineStyle: { color: '#888888', width: 2 }, itemStyle: { color: '#888888' }, symbol: 'none' },
-        { name: 'Offence', type: 'line', data: rows.map((r) => r.off), lineStyle: { color: '#c9a233', width: 2 }, itemStyle: { color: '#c9a233', borderColor: '#111111', borderWidth: 2 }, symbol: 'circle', symbolSize: 8, connectNulls: false },
-        { name: 'Defence (allowed)', type: 'line', data: rows.map((r) => r.def), lineStyle: { color: '#8b1a2b', width: 2 }, itemStyle: { color: '#8b1a2b', borderColor: '#111111', borderWidth: 2 }, symbol: 'circle', symbolSize: 8, connectNulls: false },
+        { name: 'offense', type: 'line', data: rows.map((r) => r.off), lineStyle: { color: '#c9a233', width: 2 }, itemStyle: { color: '#c9a233', borderColor: '#111111', borderWidth: 2 }, symbol: 'circle', symbolSize: 8, connectNulls: false },
+        { name: 'defense (allowed)', type: 'line', data: rows.map((r) => r.def), lineStyle: { color: '#8b1a2b', width: 2 }, itemStyle: { color: '#8b1a2b', borderColor: '#111111', borderWidth: 2 }, symbol: 'circle', symbolSize: 8, connectNulls: false },
       ],
     };
   });

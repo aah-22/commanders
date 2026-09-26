@@ -4,14 +4,14 @@ import type { EChartsCoreOption } from 'echarts/core';
 import { TeamSeasonAggregate } from '../../core/api.service';
 import { fmtEpa } from '../../core/format';
 
-/** Every team's season-to-date offence vs defence EPA/play; the highlighted team in gold, top-right is good-good. */
+/** Every team's season-to-date offense vs defense EPA/play; the highlighted team in gold, top-right is good-good. */
 @Component({
   selector: 'app-league-scatter-chart',
   imports: [NgxEchartsDirective],
   template: `
     <div class="panel">
-      <h2>Offence vs defence, league</h2>
-      <p class="muted">Season to date, plays-weighted. Right is a better offence, up is a better defence (less EPA allowed). Lines mark the league median.</p>
+      <h2>offense vs defense, league</h2>
+      <p class="muted">Season to date, plays-weighted. Right is a better offense, up is a better defense (less EPA allowed). Lines mark the league median.</p>
       @if (teams().length) {
         <div class="chart" echarts [options]="options()" theme="caabi" [autoResize]="true"></div>
         <details>
@@ -62,9 +62,9 @@ export class LeagueScatterChart {
       grid: { left: 64, right: 16, top: 24, bottom: 44 },
       tooltip: {
         trigger: 'item',
-        formatter: (p: { data: [number, number, string] }) => `${p.data[2]}<br/>Offence ${fmtEpa(p.data[0])}<br/>Defence ${fmtEpa(p.data[1])}`,
+        formatter: (p: { data: [number, number, string] }) => `${p.data[2]}<br/>offense ${fmtEpa(p.data[0])}<br/>defense ${fmtEpa(p.data[1])}`,
       },
-      xAxis: { type: 'value', name: 'Offence EPA / play →', nameLocation: 'middle', nameGap: 28, axisLabel: { formatter: (v: number) => fmtEpa(v, 2) } },
+      xAxis: { type: 'value', name: 'offense EPA / play →', nameLocation: 'middle', nameGap: 28, axisLabel: { formatter: (v: number) => fmtEpa(v, 2) } },
       yAxis: { type: 'value', name: '↑ less EPA allowed', nameLocation: 'middle', nameGap: 46, inverse: true, axisLabel: { formatter: (v: number) => fmtEpa(v, 2) } },
       series: [
         {

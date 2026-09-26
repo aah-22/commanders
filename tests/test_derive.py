@@ -65,7 +65,7 @@ def test_nflverse_convention_totals_match_team_game_stats(db):
         assert p == pytest.approx(p_ref, abs=1e-9) and r == pytest.approx(r_ref, abs=1e-9)
 
 
-def test_defence_mirrors_the_opponents_offence(db):
+def test_defense_mirrors_the_opponents_offense(db):
     eng, _ = db
     was = row(eng, "SELECT * FROM team_game_summary WHERE team='WAS' AND week=1")
     nyg = row(eng, "SELECT * FROM team_game_summary WHERE team='NYG' AND week=1")
@@ -83,8 +83,8 @@ def test_ranks_are_among_the_teams_that_played_that_week(db):
             )
         ).all()
     assert [(w, n) for w, n, _, _ in wk] == [(1, 6), (2, 4)]
-    assert wk[0][2] == 6  # WAS's hand-built game is the worst offence of week 1
-    assert wk[0][3] == 2  # NYG's defence, which faced that offence, allowed the least; WAS's is next
+    assert wk[0][2] == 6  # WAS's hand-built game is the worst offense of week 1
+    assert wk[0][3] == 2  # NYG's defense, which faced that offense, allowed the least; WAS's is next
     with eng.connect() as c:
         ranks = sorted(c.execute(text("SELECT off_epa_per_play_rank FROM team_game_summary WHERE week=1")).scalars())
     assert ranks == [1, 2, 3, 4, 5, 6]
