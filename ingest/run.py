@@ -49,6 +49,8 @@ SEASON_JOBS = [
 GLOBAL_JOBS = ["teams", "players", "contracts", "draft_picks", "trades"]
 DERIVE_JOBS = ["derive"]
 REPLACE_PER_SEASON = {"depth_charts"}  # thinned from daily snapshots, so a season is rewritten, not merged
+# nflverse publishes PFR advanced stats from 2018; asking for an earlier season raises, so those jobs are skipped.
+JOB_FIRST_SEASON = {"pfr_def_game": 2018, "pfr_pass_game": 2018, "pfr_rush_game": 2018, "pfr_rec_game": 2018}
 
 
 def engine():
@@ -160,6 +162,10 @@ class Ingest:
             self._write("trades", loaders.trades(nfl.load_trades(), loaders.id_map_from_players(self.players_df)))
 
     def season_job(self, name: str, season: int) -> None:
+        if season < JOB_FIRST_SEASON.get(name, 0):
+            log.info("job %s season %s: not published before %s, skipped", name, season, JOB_FIRST_SEASON[name])
+            self.skipped.append(f"{name}:{season}")
+            return
         nfl, ids = self.nfl, loaders.id_map_from_players(self.players_df)
         if name == "games":
             self._write("games", self.schedule(season), season)
