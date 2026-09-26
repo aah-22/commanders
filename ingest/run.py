@@ -50,7 +50,7 @@ GLOBAL_JOBS = ["teams", "players", "contracts", "draft_picks", "trades"]
 DERIVE_JOBS = ["derive"]
 REPLACE_PER_SEASON = {"depth_charts"}  # thinned from daily snapshots, so a season is rewritten, not merged
 # nflverse publishes PFR advanced stats from 2018; asking for an earlier season raises, so those jobs are skipped.
-JOB_FIRST_SEASON = {"pfr_def_game": 2018, "pfr_pass_game": 2018, "pfr_rush_game": 2018, "pfr_rec_game": 2018}
+JOB_FIRST_SEASON = dict.fromkeys([j for j in SEASON_JOBS if j.startswith("pfr_")], 2018)
 
 
 def engine():
