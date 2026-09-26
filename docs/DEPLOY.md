@@ -60,6 +60,13 @@ Migrations run at API start (`0003` adds `nfl.team_game_stats`, `gm.team_game_su
 Loki: `{job="docker"} |= "ingest complete"`.
 
 ## 5. Ops notes
+- The read-only role: `db/init/01_roles.sql` only runs on a brand-new data directory and only when Coolify keeps
+  the `./db/init` bind mount (it did not on the first deploy). The api container therefore runs
+  `python -m db.ensure_ro_role` after the migrations on every start: it creates or repairs the role named in
+  `DATABASE_URL_RO` with that URL's password and grants SELECT on all four schemas. Changing `POSTGRES_RO_PASSWORD`
+  and `DATABASE_URL_RO` together and redeploying is all a rotation needs.
+- Coolify copies the compose defaults into its Environment Variables verbatim, so `DATABASE_URL` /
+  `DATABASE_URL_RO` may show `${POSTGRES_PASSWORD:-…}` text; set them to plain URLs there.
 - Memory: API ≈ 200 MB idle; the one-off backfill peaks ≈ 1–1.5 GB (run it at night; `mem_limit` if needed).
 - Volumes: `commanders-pgdata` (the database), `commanders-cache` (nflreadpy cache). Droplet snapshots cover both.
 - MLflow unreachable → jobs still complete (tracking becomes a no-op with a one-line notice), like draft-engine.

@@ -24,4 +24,4 @@ EXPOSE 8081
 HEALTHCHECK --interval=30s --timeout=3s --start-period=20s \
   CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8081/health', timeout=2).status == 200 else 1)"
 
-CMD ["sh", "-c", "alembic upgrade head && uvicorn api.main:app --host 0.0.0.0 --port 8081 --proxy-headers --forwarded-allow-ips=*"]
+CMD ["sh", "-c", "alembic upgrade head && python -m db.ensure_ro_role && uvicorn api.main:app --host 0.0.0.0 --port 8081 --proxy-headers --forwarded-allow-ips=*"]
