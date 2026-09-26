@@ -175,11 +175,39 @@ def rosters_weekly(df: pl.DataFrame) -> pl.DataFrame:
     return _ints(out, ["season", "week"])
 
 
+def depth_charts_legacy(df: pl.DataFrame, season: int) -> pl.DataFrame:
+    """nflverse depth charts through 2024 are already one chart per team-week (`club_code`, `week`, `depth_team`,
+    `depth_position`); map them onto the daily-snapshot layout the table follows. `pos_abb` is the depth-chart slot
+    (`RG`, `LCB`), falling back to the roster position when the slot is blank; `pos_rank` is the string within the slot."""
+    slot = pl.col("depth_position").str.strip_chars()
+    return (
+        df.filter(pl.col("week").is_not_null() & pl.col("gsis_id").is_not_null())
+        .select(
+            pl.lit(season).alias("season"),
+            pl.col("week").cast(pl.Int64),
+            pl.col("club_code").alias("team"),
+            pl.col("gsis_id"),
+            pl.when(slot == "").then(pl.col("position")).otherwise(slot).alias("pos_abb"),
+            pl.lit(None, dtype=pl.Utf8).alias("dt"),
+            pl.col("full_name").alias("player_name"),
+            pl.lit(None, dtype=pl.Utf8).alias("espn_id"),
+            pl.col("formation").alias("pos_grp"),
+            pl.col("position").alias("pos_name"),
+            pl.lit(None, dtype=pl.Int64).alias("pos_slot"),
+            pl.col("depth_team").cast(pl.Int64, strict=False).alias("pos_rank"),
+        )
+        .unique(subset=["season", "week", "team", "gsis_id", "pos_abb"], keep="last")
+    )
+
+
 def depth_charts(df: pl.DataFrame, schedule: pl.DataFrame, season: int) -> pl.DataFrame:
     """Daily snapshots thinned to one per week: the last snapshot dated before each week's first kickoff, for the weeks
-    already played and the one coming up (a week further out has no chart of its own yet)."""
+    already played and the one coming up (a week further out has no chart of its own yet). Seasons before 2025 come
+    in the weekly legacy layout and go through `depth_charts_legacy`."""
     if df.is_empty():
         return df
+    if "dt" not in df.columns:
+        return depth_charts_legacy(df, season)
     weeks = (
         schedule.filter(pl.col("season") == season)
         .group_by("week")

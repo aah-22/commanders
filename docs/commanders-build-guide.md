@@ -201,7 +201,9 @@ backfill died on a 102-character `college_name`. Every text column in the `nfl` 
 Additional facts verified against `nflreadpy` 0.1.5: `load_participation` stops at 2025; `load_contracts()` `team`
 is a nickname or `A/B` string and carries a nested `season_history` (unnest, drop the `Total` row); snaps, PFR
 advanced stats and trades are keyed by `pfr_id` (crosswalk via `load_players`); `load_depth_charts` is daily
-snapshots (thin to one per week); cache API is `nflreadpy.config.update_config(cache_mode=..., cache_dir=...)`.
+snapshots from 2025 (thin to one per week) but one row per team-week through 2024 (`club_code`, `depth_team`,
+`depth_position`; `loaders.depth_charts_legacy` maps it); `load_pfr_advstats` raises for seasons before 2018
+(`run.JOB_FIRST_SEASON` skips them); cache API is `nflreadpy.config.update_config(cache_mode=..., cache_dir=...)`.
 Angular's CLI 21 needs Node ≥ 22.22.3; the project pins Angular 20 (Node 22.x) — upgrade both together.
 Reconciling team EPA with nflverse (verified on all 66 2026 team-games): `stats_team.rushing_epa` is `sum(epa)` over
 `play_type in (run, qb_kneel)` including aborted snaps, and `passing_epa` is `sum(qb_epa)` (not `epa`) over
