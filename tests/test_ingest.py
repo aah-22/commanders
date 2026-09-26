@@ -171,3 +171,42 @@ def test_ingest_configures_the_nflreadpy_cache_with_a_path(monkeypatch, tmp_path
     cfg = nfl.config.get_config()
     assert cfg.cache_dir == tmp_path / "nflreadpy" and hasattr(cfg.cache_dir, "mkdir")
     nfl.config.update_config(cache_mode="off")
+
+
+def test_depth_charts_before_2025_map_the_weekly_legacy_layout():
+    """nflverse depth charts through 2024 have no `dt`: one row per team-week with club_code / depth_team / depth_position."""
+    raw = pl.DataFrame(
+        {
+            "season": [2024] * 4,
+            "club_code": ["WAS"] * 4,
+            "week": [1, 1, 1, None],
+            "game_type": ["REG"] * 4,
+            "depth_team": ["1", "2", "1", "1"],
+            "formation": ["Offense", "Offense", "Defense", "Offense"],
+            "gsis_id": ["a", "b", "c", "d"],
+            "position": ["G", "G", "FS", "QB"],
+            "depth_position": ["RG", "RG", "\n    ", "QB"],
+            "full_name": ["Sam", "Backup", "Jeremy", "Nobody"],
+        }
+    )
+    out = loaders.depth_charts(raw, pl.DataFrame({"season": [], "week": [], "gameday": []}), 2024)
+    assert set(out.columns) == {
+        "season", "week", "team", "gsis_id", "pos_abb", "dt", "player_name", "espn_id", "pos_grp", "pos_name",
+        "pos_slot", "pos_rank",
+    }  # fmt: skip
+    assert out.sort("gsis_id").select(["gsis_id", "pos_abb", "pos_rank", "pos_grp"]).rows() == [
+        ("a", "RG", 1, "Offense"),
+        ("b", "RG", 2, "Offense"),
+        ("c", "FS", 1, "Defense"),  # blank slot falls back to the roster position
+    ]  # the week-less row is dropped
+    assert out["dt"].null_count() == 3 and out["week"].to_list() == [1, 1, 1]
+
+
+def test_season_jobs_skip_assets_nflverse_does_not_publish_for_that_season(monkeypatch, tmp_path):
+    from ingest.run import Ingest
+
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    ing = Ingest(conn=None, tracker=None)
+    ing._players = pl.DataFrame({"pfr_id": ["a"], "gsis_id": ["1"]})
+    ing.season_job("pfr_def_game", 2016)  # would raise "Season must be between 2018 and 2026" upstream
+    assert ing.skipped == ["pfr_def_game:2016"] and ing.rows == {}
