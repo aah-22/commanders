@@ -3,6 +3,11 @@
 Postgres schemas: `nfl` (raw nflverse mirrors, natural keys, upserted), `gm` (derived), `ml` (model outputs),
 `ops` (pipeline bookkeeping). On SQLite (tests) the schemas are translated away with `sqlite_options()`.
 The nflverse spread / total / moneyline columns are deliberately not mirrored anywhere.
+
+Text columns in the `nfl` mirrors are unbounded `Text`, never `String(n)`: nflverse values are outside our control
+(a 102-character college name, a 10-character `draft_team`, an 18-character `date_of_birth` all occur) and Postgres
+rejects an over-long value for a bounded varchar (migration 0004 widened the originals). Our own tables (`ops`, `gm`)
+keep bounded strings.
 """
 
 from __future__ import annotations
@@ -64,32 +69,32 @@ class Game(Base):
     __tablename__ = "games"
     __table_args__ = {"schema": "nfl"}
 
-    game_id: Mapped[str] = mapped_column(String(24), primary_key=True)
+    game_id: Mapped[str] = mapped_column(Text, primary_key=True)
     season: Mapped[int] = mapped_column(Integer, index=True)
     week: Mapped[int] = mapped_column(Integer, index=True)
-    game_type: Mapped[str] = mapped_column(String(8))
-    gameday: Mapped[str | None] = mapped_column(String(10))
-    weekday: Mapped[str | None] = mapped_column(String(10))
-    gametime: Mapped[str | None] = mapped_column(String(8))
-    home_team: Mapped[str] = mapped_column(String(4), index=True)
-    away_team: Mapped[str] = mapped_column(String(4), index=True)
+    game_type: Mapped[str] = mapped_column(Text)
+    gameday: Mapped[str | None] = mapped_column(Text)
+    weekday: Mapped[str | None] = mapped_column(Text)
+    gametime: Mapped[str | None] = mapped_column(Text)
+    home_team: Mapped[str] = mapped_column(Text, index=True)
+    away_team: Mapped[str] = mapped_column(Text, index=True)
     home_score: Mapped[int | None] = mapped_column(Integer)
     away_score: Mapped[int | None] = mapped_column(Integer)
     result: Mapped[int | None] = mapped_column(Integer)  # home margin; NULL until played
     total: Mapped[int | None] = mapped_column(Integer)
     overtime: Mapped[int | None] = mapped_column(Integer)
     div_game: Mapped[int | None] = mapped_column(Integer)
-    location: Mapped[str | None] = mapped_column(String(8))
-    roof: Mapped[str | None] = mapped_column(String(16))
-    surface: Mapped[str | None] = mapped_column(String(16))
+    location: Mapped[str | None] = mapped_column(Text)
+    roof: Mapped[str | None] = mapped_column(Text)
+    surface: Mapped[str | None] = mapped_column(Text)
     temp: Mapped[int | None] = mapped_column(Integer)
     wind: Mapped[int | None] = mapped_column(Integer)
-    away_qb_id: Mapped[str | None] = mapped_column(String(16))
-    home_qb_id: Mapped[str | None] = mapped_column(String(16))
-    away_qb_name: Mapped[str | None] = mapped_column(String(64))
-    home_qb_name: Mapped[str | None] = mapped_column(String(64))
-    away_coach: Mapped[str | None] = mapped_column(String(64))
-    home_coach: Mapped[str | None] = mapped_column(String(64))
+    away_qb_id: Mapped[str | None] = mapped_column(Text)
+    home_qb_id: Mapped[str | None] = mapped_column(Text)
+    away_qb_name: Mapped[str | None] = mapped_column(Text)
+    home_qb_name: Mapped[str | None] = mapped_column(Text)
+    away_coach: Mapped[str | None] = mapped_column(Text)
+    home_coach: Mapped[str | None] = mapped_column(Text)
     away_rest: Mapped[int | None] = mapped_column(Integer)
     home_rest: Mapped[int | None] = mapped_column(Integer)
     stadium: Mapped[str | None] = mapped_column(Text)
@@ -105,14 +110,14 @@ def _cols(spec: str, types: dict[str, type] | None = None) -> list[Column]:
 teams = Table(
     "teams",
     metadata,
-    Column("team_abbr", String(4), primary_key=True),
-    Column("team_name", String(48)),
-    Column("team_id", String(8)),
-    Column("team_nick", String(24)),
-    Column("team_conf", String(4)),
-    Column("team_division", String(16)),
-    Column("team_color", String(8)),
-    Column("team_color2", String(8)),
+    Column("team_abbr", Text, primary_key=True),
+    Column("team_name", Text),
+    Column("team_id", Text),
+    Column("team_nick", Text),
+    Column("team_conf", Text),
+    Column("team_division", Text),
+    Column("team_color", Text),
+    Column("team_color2", Text),
     Column("team_logo_wikipedia", Text),
     Column("team_logo_espn", Text),
     Column("team_wordmark", Text),
@@ -122,32 +127,32 @@ teams = Table(
 players = Table(
     "players",
     metadata,
-    Column("gsis_id", String(16), primary_key=True),
-    Column("display_name", String(64)),
-    Column("first_name", String(48)),
-    Column("last_name", String(48)),
-    Column("football_name", String(48)),
-    Column("esb_id", String(16)),
-    Column("pfr_id", String(16)),
-    Column("pff_id", String(16)),
-    Column("otc_id", String(16)),
-    Column("espn_id", String(16)),
-    Column("birth_date", String(10)),
-    Column("position_group", String(8)),
-    Column("position", String(8)),
+    Column("gsis_id", Text, primary_key=True),
+    Column("display_name", Text),
+    Column("first_name", Text),
+    Column("last_name", Text),
+    Column("football_name", Text),
+    Column("esb_id", Text),
+    Column("pfr_id", Text),
+    Column("pff_id", Text),
+    Column("otc_id", Text),
+    Column("espn_id", Text),
+    Column("birth_date", Text),
+    Column("position_group", Text),
+    Column("position", Text),
     Column("height", Float),
     Column("weight", Float),
-    Column("college_name", String(64)),
+    Column("college_name", Text),
     Column("jersey_number", Float),
     Column("rookie_season", Float),
     Column("last_season", Float),
-    Column("latest_team", String(4)),
-    Column("status", String(8)),
+    Column("latest_team", Text),
+    Column("status", Text),
     Column("years_of_experience", Float),
     Column("draft_year", Float),
     Column("draft_round", Float),
     Column("draft_pick", Float),
-    Column("draft_team", String(4)),
+    Column("draft_team", Text),
     Column("headshot", Text),
     Index("ix_players_pfr", "pfr_id"),
     Index("ix_players_otc", "otc_id"),
@@ -158,14 +163,14 @@ players = Table(
 plays = Table(
     "plays",
     metadata,
-    Column("game_id", String(24), primary_key=True),
+    Column("game_id", Text, primary_key=True),
     Column("play_id", Integer, primary_key=True),
     Column("season", Integer, nullable=False),
     Column("week", Integer),
-    Column("posteam", String(4)),
-    Column("defteam", String(4)),
-    Column("home_team", String(4)),
-    Column("away_team", String(4)),
+    Column("posteam", Text),
+    Column("defteam", Text),
+    Column("home_team", Text),
+    Column("away_team", Text),
     Column("fixed_drive", Integer),
     Column("drive", Integer),
     Column("qtr", Integer),
@@ -175,7 +180,7 @@ plays = Table(
     Column("goal_to_go", Integer),
     Column("game_seconds_remaining", Integer),
     Column("half_seconds_remaining", Integer),
-    Column("play_type", String(24)),
+    Column("play_type", Text),
     Column("desc", Text),
     Column("yards_gained", Integer),
     *_cols("epa qb_epa success wp wpa air_yards yards_after_catch cpoe xpass"),
@@ -188,15 +193,15 @@ plays = Table(
             Integer,
         ),
     ),
-    Column("passer_player_id", String(16)),
-    Column("rusher_player_id", String(16)),
-    Column("receiver_player_id", String(16)),
-    Column("penalty_player_id", String(16)),
-    Column("pass_location", String(8)),
-    Column("run_location", String(8)),
+    Column("passer_player_id", Text),
+    Column("rusher_player_id", Text),
+    Column("receiver_player_id", Text),
+    Column("penalty_player_id", Text),
+    Column("pass_location", Text),
+    Column("run_location", Text),
     Column("series", Integer),
-    Column("fixed_drive_result", String(24)),
-    Column("td_team", String(4)),
+    Column("fixed_drive_result", Text),
+    Column("td_team", Text),
     Column("posteam_score", Integer),
     Column("defteam_score", Integer),
     Column("score_differential", Integer),
@@ -215,14 +220,14 @@ _pgs_ints = "season week completions attempts passing_yards passing_tds passing_
 player_game_stats = Table(
     "player_game_stats",
     metadata,
-    Column("player_id", String(16), primary_key=True),
-    Column("game_id", String(24), primary_key=True),
-    Column("player_display_name", String(64)),
-    Column("position", String(8)),
-    Column("position_group", String(8)),
-    Column("season_type", String(8)),
-    Column("team", String(4)),
-    Column("opponent_team", String(4)),
+    Column("player_id", Text, primary_key=True),
+    Column("game_id", Text, primary_key=True),
+    Column("player_display_name", Text),
+    Column("position", Text),
+    Column("position_group", Text),
+    Column("season_type", Text),
+    Column("team", Text),
+    Column("opponent_team", Text),
     *_cols(
         "season week completions attempts passing_yards passing_tds passing_interceptions sacks_suffered sack_yards_lost "
         "passing_air_yards passing_yards_after_catch passing_first_downs passing_epa passing_cpoe pacr carries rushing_yards "
@@ -244,10 +249,10 @@ _tgs_ints = (
 team_game_stats = Table(
     "team_game_stats",
     metadata,
-    Column("team", String(4), primary_key=True),
-    Column("game_id", String(24), primary_key=True),
-    Column("season_type", String(8)),
-    Column("opponent_team", String(4)),
+    Column("team", Text, primary_key=True),
+    Column("game_id", Text, primary_key=True),
+    Column("season_type", Text),
+    Column("opponent_team", Text),
     *_cols(
         "season week completions attempts passing_yards passing_tds passing_interceptions sacks_suffered sack_yards_lost "
         "sack_fumbles_lost passing_air_yards passing_yards_after_catch passing_first_downs passing_epa passing_cpoe carries "
@@ -264,16 +269,16 @@ team_game_stats = Table(
 snap_counts = Table(
     "snap_counts",
     metadata,
-    Column("pfr_player_id", String(16), primary_key=True),
-    Column("game_id", String(24), primary_key=True),
-    Column("gsis_id", String(16)),
+    Column("pfr_player_id", Text, primary_key=True),
+    Column("game_id", Text, primary_key=True),
+    Column("gsis_id", Text),
     Column("season", Integer),
     Column("week", Integer),
-    Column("game_type", String(8)),
-    Column("player", String(64)),
-    Column("position", String(8)),
-    Column("team", String(4)),
-    Column("opponent", String(4)),
+    Column("game_type", Text),
+    Column("player", Text),
+    Column("position", Text),
+    Column("team", Text),
+    Column("opponent", Text),
     *_cols("offense_snaps offense_pct defense_snaps defense_pct st_snaps st_pct"),
     Index("ix_snaps_gsis", "gsis_id"),
     Index("ix_snaps_season_team", "season", "team"),
@@ -285,24 +290,24 @@ rosters_weekly = Table(
     metadata,
     Column("season", Integer, primary_key=True),
     Column("week", Integer, primary_key=True),
-    Column("team", String(4), primary_key=True),
-    Column("gsis_id", String(16), primary_key=True),
-    Column("game_type", String(8)),
-    Column("position", String(8)),
-    Column("depth_chart_position", String(8)),
+    Column("team", Text, primary_key=True),
+    Column("gsis_id", Text, primary_key=True),
+    Column("game_type", Text),
+    Column("position", Text),
+    Column("depth_chart_position", Text),
     Column("jersey_number", Float),
-    Column("status", String(8)),
-    Column("full_name", String(64)),
-    Column("birth_date", String(10)),
+    Column("status", Text),
+    Column("full_name", Text),
+    Column("birth_date", Text),
     Column("height", Float),
     Column("weight", Float),
-    Column("college", String(64)),
-    Column("pfr_id", String(16)),
-    Column("espn_id", String(16)),
+    Column("college", Text),
+    Column("pfr_id", Text),
+    Column("espn_id", Text),
     Column("years_exp", Float),
     Column("entry_year", Float),
     Column("rookie_year", Float),
-    Column("draft_club", String(4)),
+    Column("draft_club", Text),
     Column("draft_number", Float),
     Index("ix_rw_gsis", "gsis_id"),
     schema="nfl",
@@ -313,14 +318,14 @@ depth_charts = Table(
     metadata,
     Column("season", Integer, primary_key=True),
     Column("week", Integer, primary_key=True),
-    Column("team", String(4), primary_key=True),
-    Column("gsis_id", String(16), primary_key=True),
-    Column("pos_abb", String(8), primary_key=True),
-    Column("dt", String(32)),
-    Column("player_name", String(64)),
-    Column("espn_id", String(16)),
-    Column("pos_grp", String(16)),
-    Column("pos_name", String(32)),
+    Column("team", Text, primary_key=True),
+    Column("gsis_id", Text, primary_key=True),
+    Column("pos_abb", Text, primary_key=True),
+    Column("dt", Text),
+    Column("player_name", Text),
+    Column("espn_id", Text),
+    Column("pos_grp", Text),
+    Column("pos_name", Text),
     Column("pos_slot", Integer),
     Column("pos_rank", Integer),
     schema="nfl",
@@ -331,39 +336,39 @@ injuries = Table(
     metadata,
     Column("season", Integer, primary_key=True),
     Column("week", Integer, primary_key=True),
-    Column("game_type", String(8), primary_key=True),
-    Column("gsis_id", String(16), primary_key=True),
-    Column("season_type", String(8)),
-    Column("team", String(4)),
-    Column("position", String(8)),
-    Column("full_name", String(64)),
-    Column("report_primary_injury", String(48)),
-    Column("report_secondary_injury", String(48)),
-    Column("report_status", String(24)),
-    Column("practice_primary_injury", String(48)),
-    Column("practice_secondary_injury", String(48)),
-    Column("practice_status", String(48)),
+    Column("game_type", Text, primary_key=True),
+    Column("gsis_id", Text, primary_key=True),
+    Column("season_type", Text),
+    Column("team", Text),
+    Column("position", Text),
+    Column("full_name", Text),
+    Column("report_primary_injury", Text),
+    Column("report_secondary_injury", Text),
+    Column("report_status", Text),
+    Column("practice_primary_injury", Text),
+    Column("practice_secondary_injury", Text),
+    Column("practice_status", Text),
     schema="nfl",
 )
 
 contracts = Table(
     "contracts",
     metadata,
-    Column("otc_id", String(16), primary_key=True),
+    Column("otc_id", Text, primary_key=True),
     Column("year_signed", Integer, primary_key=True),
-    Column("team_raw", String(32), primary_key=True),
-    Column("team_abbr", String(4)),
-    Column("player", String(64)),
-    Column("position", String(8)),
-    Column("gsis_id", String(16)),
+    Column("team_raw", Text, primary_key=True),
+    Column("team_abbr", Text),
+    Column("player", Text),
+    Column("position", Text),
+    Column("gsis_id", Text),
     Column("is_active", Boolean),
     *_cols("years value apy guaranteed apy_cap_pct inflated_value inflated_apy inflated_guaranteed"),
     Column("draft_year", Float),
     Column("draft_round", Float),
     Column("draft_overall", Float),
-    Column("draft_team", String(4)),
-    Column("date_of_birth", String(10)),
-    Column("college", String(64)),
+    Column("draft_team", Text),
+    Column("date_of_birth", Text),
+    Column("college", Text),
     Column("player_page", Text),
     Index("ix_contracts_gsis", "gsis_id"),
     Index("ix_contracts_active_pos", "is_active", "position"),
@@ -373,11 +378,11 @@ contracts = Table(
 contract_seasons = Table(
     "contract_seasons",
     metadata,
-    Column("otc_id", String(16), primary_key=True),
+    Column("otc_id", Text, primary_key=True),
     Column("year_signed", Integer, primary_key=True),
-    Column("team_raw", String(32), primary_key=True),
+    Column("team_raw", Text, primary_key=True),
     Column("season", Integer, primary_key=True),
-    Column("team", String(24)),
+    Column("team", Text),
     *_cols(
         "base_salary prorated_bonus option_bonus roster_bonus guaranteed_salary cap_number cap_percent cash_paid workout_bonus per_game_roster_bonus other_bonus"
     ),
@@ -390,14 +395,14 @@ draft_picks = Table(
     Column("season", Integer, primary_key=True),
     Column("round", Integer, primary_key=True),
     Column("pick", Integer, primary_key=True),
-    Column("team", String(4)),
-    Column("gsis_id", String(16)),
-    Column("pfr_player_id", String(16)),
-    Column("pfr_player_name", String(64)),
-    Column("position", String(8)),
-    Column("category", String(8)),
-    Column("side", String(8)),
-    Column("college", String(64)),
+    Column("team", Text),
+    Column("gsis_id", Text),
+    Column("pfr_player_id", Text),
+    Column("pfr_player_name", Text),
+    Column("position", Text),
+    Column("category", Text),
+    Column("side", Text),
+    Column("college", Text),
     Column("age", Float),
     Column("to", Float),
     *_cols("allpro probowls seasons_started w_av car_av dr_av games"),
@@ -412,16 +417,16 @@ trades = Table(
     Column("trade_id", Integer, primary_key=True),
     Column("seq", Integer, primary_key=True),
     Column("season", Integer),
-    Column("trade_date", String(10)),
-    Column("gave", String(4)),
-    Column("received", String(4)),
+    Column("trade_date", Text),
+    Column("gave", Text),
+    Column("received", Text),
     Column("pick_season", Float),
     Column("pick_round", Float),
     Column("pick_number", Float),
     Column("conditional", Float),
-    Column("pfr_id", String(16)),
-    Column("pfr_name", String(64)),
-    Column("gsis_id", String(16)),
+    Column("pfr_id", Text),
+    Column("pfr_name", Text),
+    Column("gsis_id", Text),
     Index("ix_trades_received", "received", "season"),
     Index("ix_trades_gsis", "gsis_id"),
     schema="nfl",
@@ -432,15 +437,15 @@ def _pfr(name: str, stats: str) -> Table:
     return Table(
         name,
         metadata,
-        Column("pfr_player_id", String(16), primary_key=True),
-        Column("game_id", String(24), primary_key=True),
-        Column("gsis_id", String(16)),
+        Column("pfr_player_id", Text, primary_key=True),
+        Column("game_id", Text, primary_key=True),
+        Column("gsis_id", Text),
         Column("season", Integer),
         Column("week", Integer),
-        Column("game_type", String(8)),
-        Column("team", String(4)),
-        Column("opponent", String(4)),
-        Column("pfr_player_name", String(64)),
+        Column("game_type", Text),
+        Column("team", Text),
+        Column("opponent", Text),
+        Column("pfr_player_name", Text),
         *_cols(stats),
         Index(f"ix_{name}_gsis", "gsis_id"),
         Index(f"ix_{name}_season_team", "season", "team"),
@@ -475,12 +480,12 @@ def _ngs(name: str, stats: str) -> Table:
         name,
         metadata,
         Column("season", Integer, primary_key=True),
-        Column("season_type", String(8), primary_key=True),
+        Column("season_type", Text, primary_key=True),
         Column("week", Integer, primary_key=True),
-        Column("player_gsis_id", String(16), primary_key=True),
-        Column("player_display_name", String(64)),
-        Column("player_position", String(8)),
-        Column("team_abbr", String(4)),
+        Column("player_gsis_id", Text, primary_key=True),
+        Column("player_display_name", Text),
+        Column("player_position", Text),
+        Column("team_abbr", Text),
         *_cols(stats),
         schema="nfl",
     )

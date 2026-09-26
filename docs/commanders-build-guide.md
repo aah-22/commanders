@@ -193,6 +193,10 @@ pbp volume (index by season/team; backfill per season); nflverse publishes pbp o
 contract coverage is good for veterans, thinner for UDFAs (fall back to rookie-scale by draft slot); defensive
 production metrics are noisier than offensive ones (show sample sizes).
 
+Postgres enforces `varchar(n)` and SQLite does not, so a too-narrow mirror column only fails in production: the first
+backfill died on a 102-character `college_name`. Every text column in the `nfl` mirrors is therefore unbounded `Text`
+(migration `0004` widened the originals); keep it that way when adding a mirror column.
+
 
 Additional facts verified against `nflreadpy` 0.1.5: `load_participation` stops at 2025; `load_contracts()` `team`
 is a nickname or `A/B` string and carries a nested `season_history` (unnest, drop the `Total` row); snaps, PFR

@@ -28,7 +28,8 @@ One-time bootstrap from a shell in the api container (Coolify's browser terminal
 Cloudflare; from an SSH session on the Droplet use `sudo docker exec -it $(sudo docker ps -qf name=api-<resource id>) sh`,
 cwd `/srv`; wrap the backfill in `nohup … > /data/backfill.log 2>&1 &` if the session may drop): `alembic upgrade head` (also automatic at start),
 `python -m ingest.run --full --seasons 2016-2026` (~30–45 min, per-season loop, `nflreadpy` cache on `/data`),
-`python -m models.train --all`, `python -m models.score`.
+`python -m models.train --all`, `python -m models.score`. The backfill is idempotent (upserts on natural keys), so
+after a crash just re-run the same command; it skips assets whose nflverse digest has not changed.
 
 ## 2. Tunnel ingress
 On the Droplet, above the `http_status:404` catch-all in `/etc/cloudflared/config.yml`:
