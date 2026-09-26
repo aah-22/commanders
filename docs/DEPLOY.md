@@ -11,8 +11,10 @@ Public: **no Cloudflare Access application** (confirm no existing Access app's d
    `MLFLOW_TRACKING_URI=http://<mlflow internal ip>:5000`, `MLFLOW_EXPERIMENT=commanders`; leave the CF vars empty.
    `DATABASE_URL` / `DATABASE_URL_RO` default to the compose-internal `db` service.
 3. **Deploy** (first build: Angular ~2 min, Python ~3 min). Then force-deploy without cache after every source change.
-4. **Internal IP** for the tunnel:
-   `sudo docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}' $(sudo docker ps -qf name=commanders-web)`
+4. **Internal IP** for the tunnel. Coolify names containers `<service>-<resource id>-…` (for example
+   `web-oyqrne93d7qvlhbdmmf7sbtq-…`), so filter on the service name plus the id shown in the resource's URL:
+   `sudo docker ps --format '{{.Names}}' | grep -E '^(web|api|db)-'` to find it, then
+   `sudo docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}' $(sudo docker ps -qf name=web-<resource id>)`
 5. **Scheduled Tasks** (container `commanders-api`, cron in UTC):
 
 | Name | Command | Cron (UTC) | ET |
@@ -22,7 +24,9 @@ Public: **no Cloudflare Access application** (confirm no existing Access app's d
 | `weekly-train` | `python -m models.train --all` | `0 11 * * 2` | Tue 07:00 |
 | `weekly-evaluate` | `python -m models.evaluate` | `30 11 * * 2` | Tue 07:30 |
 
-One-time bootstrap from the resource terminal (cwd `/srv`): `alembic upgrade head` (also automatic at start),
+One-time bootstrap from a shell in the api container (Coolify's browser terminal drops its websocket behind
+Cloudflare; from an SSH session on the Droplet use `sudo docker exec -it $(sudo docker ps -qf name=api-<resource id>) sh`,
+cwd `/srv`; wrap the backfill in `nohup … > /data/backfill.log 2>&1 &` if the session may drop): `alembic upgrade head` (also automatic at start),
 `python -m ingest.run --full --seasons 2016-2026` (~30–45 min, per-season loop, `nflreadpy` cache on `/data`),
 `python -m models.train --all`, `python -m models.score`.
 
