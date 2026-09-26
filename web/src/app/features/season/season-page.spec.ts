@@ -57,6 +57,17 @@ describe('SeasonDashboardPage', () => {
     expect(fixture.nativeElement.querySelector('app-record-strip')).toBeNull();
   });
 
+  it('treats a 404 (season not ingested yet) as an empty season, not an outage', () => {
+    const fixture = render();
+    http.expectOne('/api/v1/season/2026/summary').flush({ detail: 'no games for season 2026' }, { status: 404, statusText: 'Not Found' });
+    http.expectOne('/api/v1/season/2026/league').flush(null, { status: 404, statusText: 'Not Found' });
+    http.expectOne('/api/v1/season/2026/games').flush(null, { status: 404, statusText: 'Not Found' });
+    fixture.detectChanges();
+    const text = fixture.nativeElement.textContent as string;
+    expect(text).toContain('No 2026 games ingested yet');
+    expect(text).not.toContain('unavailable');
+  });
+
   it('says so when the API fails', () => {
     const fixture = render();
     http.expectOne('/api/v1/season/2026/summary').flush(null, { status: 500, statusText: 'err' });

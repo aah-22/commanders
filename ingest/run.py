@@ -15,6 +15,7 @@ import os
 import sys
 import time
 from datetime import UTC, datetime
+from pathlib import Path
 
 import pandas as pd
 import polars as pl
@@ -76,9 +77,8 @@ class Ingest:
         import nflreadpy as nfl
 
         self.nfl, self.conn, self.tr = nfl, conn, tracker
-        nfl.config.update_config(
-            cache_mode=cache_mode, cache_dir=os.path.join(os.environ.get("DATA_DIR", "."), "nflreadpy")
-        )
+        # nflreadpy wants a Path here; a str only fails once the filesystem cache is on (--full), not in --nightly
+        nfl.config.update_config(cache_mode=cache_mode, cache_dir=Path(os.environ.get("DATA_DIR", ".")) / "nflreadpy")
         self.rows: dict[str, int] = {}
         self.skipped: list[str] = []
         self._players: pl.DataFrame | None = None
