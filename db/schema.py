@@ -534,7 +534,7 @@ MIRRORS: dict[str, Table] = {
 
 
 # --------------------------------------------------------------------------- derived (gm.*), rebuilt per season
-# One side's metrics; stored with an off_ prefix (team on offence) and a def_ prefix (team on defence, i.e. allowed).
+# One side's metrics; stored with an off_ prefix (team on offense) and a def_ prefix (team on defense, i.e. allowed).
 SIDE_RATES = (
     "epa_per_play success_rate explosive_rate pass_epa_per_play rush_epa_per_play dropback_success early_down_epa "
     "pass_rate proe third_down_conv red_zone_td_rate sack_rate points_per_drive avg_start_yardline nflv_pass_epa "

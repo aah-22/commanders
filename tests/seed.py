@@ -1,5 +1,5 @@
 """A tiny hand-built season for the derive and API tests: six teams, three weeks (the third unplayed, KC/BUF on a
-bye in week 2), and a WAS week-1 offence that hits every filter edge (kickoff first, sack, scramble, no-play penalty,
+bye in week 2), and a WAS week-1 offense that hits every filter edge (kickoff first, sack, scramble, no-play penalty,
 kneel, spike, aborted snap, completed-pass fumble with qb_epa ≠ epa, turnover on downs). The expected numbers in the
 tests are worked by hand from `WAS_G1_PLAYS`."""
 

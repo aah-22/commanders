@@ -3,7 +3,7 @@ import { SeasonSummary } from '../../core/api.service';
 import { fmtEpa, fmtNum, fmtSignedPct, ordinal, record } from '../../core/format';
 import { StatTile } from '../../shared/stat-tile';
 
-/** Six headline tiles: record, points, offence and defence EPA/play with league rank, PROE, Pythagorean win %. */
+/** Six headline tiles: record, points, offense and defense EPA/play with league rank, PROE, Pythagorean win %. */
 @Component({
   selector: 'app-record-strip',
   imports: [StatTile],
@@ -40,8 +40,8 @@ export class RecordStrip {
         value: st ? `${st.pf} – ${st.pa}` : '–',
         delta: st ? `${st.point_diff > 0 ? '+' : ''}${st.point_diff} differential` : '',
       },
-      { label: 'Offence EPA / play', value: fmtEpa(a?.off_epa_per_play), delta: rank('off_epa_per_play') },
-      { label: 'Defence EPA / play allowed', value: fmtEpa(a?.def_epa_per_play), delta: rank('def_epa_per_play') },
+      { label: 'offense EPA / play', value: fmtEpa(a?.off_epa_per_play), delta: rank('off_epa_per_play') },
+      { label: 'defense EPA / play allowed', value: fmtEpa(a?.def_epa_per_play), delta: rank('def_epa_per_play') },
       { label: 'Pass rate over expected', value: fmtSignedPct(a?.off_proe), delta: 'neutral downs' },
       {
         label: 'Pythagorean win %',

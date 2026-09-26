@@ -88,7 +88,7 @@ per play), `player_game_stats` (player_id, season, week), `snaps` (pfr_player_id
 `draft_picks`, `contracts` (OTC: player, team, apy, guaranteed, years, per-season cap hits, is_active),
 `players` (ids crosswalk from load_ff_playerids + rosters), `teams`.
 Derived (`ingest/derive/`, rebuilt per season as the last `--nightly` job, delete-then-upsert inside the run's
-transaction): **`gm.team_game_summary`** (built; one row per team-game: offence `off_*` and defence `def_*` = allowed
+transaction): **`gm.team_game_summary`** (built; one row per team-game: offense `off_*` and defense `def_*` = allowed
 — EPA/play, success %, explosive %, pass/rush EPA, dropback success, early-down EPA, pass rate and PROE on neutral
 downs, third-down conversion, red-zone TD %, sack rate, drives, points per drive, average start, turnovers, plus each
 rate's denominator and the rank among the teams that played that week) and **`gm.standings`** (built; cumulative
@@ -147,8 +147,8 @@ links) · `/health`.
 
 ## §8 Angular pages
 ### Angular (v20, standalone + signals, ngx-echarts; routes = pages)
-`/season` Season dashboard (built: `features/season/` — `RecordStrip` six tiles, `EpaTrendChart` offence/defence by
-week over the league median and inter-quartile band with bye weeks as gaps, `LeagueScatterChart` offence vs defence
+`/season` Season dashboard (built: `features/season/` — `RecordStrip` six tiles, `EpaTrendChart` offense/defense by
+week over the league median and inter-quartile band with bye weeks as gaps, `LeagueScatterChart` offense vs defense
 EPA with WAS highlighted and median lines, `DownDistanceHeatmap` success-rate gap to the league with thin cells
 dimmed, `GameResultsTable`; every chart has a table twin under "Table view"; ECharts registered once in
 `core/echarts-setup.ts` for the app and the specs; fixtures in `features/season/testing/`),

@@ -1,4 +1,4 @@
-"""gm.team_game_summary: one row per team-game with offence (`off_`) and defence (`def_`, i.e. allowed) metrics and
+"""gm.team_game_summary: one row per team-game with offense (`off_`) and defense (`def_`, i.e. allowed) metrics and
 the team's rank among the teams that played that week. Pure polars on the `nfl.plays` / `nfl.games` frames; every
 rate keeps its denominator so the API can re-aggregate exactly, and is null when that denominator is zero."""
 
@@ -25,7 +25,7 @@ def _mean(col: str, where: pl.Expr) -> pl.Expr:
 
 
 def side(plays: pl.DataFrame, col: str) -> pl.DataFrame:
-    """Metrics for the team named in `col` ('posteam' → offence, 'defteam' → defence) per game, unprefixed."""
+    """Metrics for the team named in `col` ('posteam' → offense, 'defteam' → defense) per game, unprefixed."""
     df = plays.filter(pl.col(col).is_not_null()).rename({col: "team"})
     agg = df.group_by(KEY).agg(
         plays=f.CLEAN.sum(),
@@ -106,7 +106,7 @@ def team_games(games: pl.DataFrame) -> pl.DataFrame:
 
 
 def week_ranks(df: pl.DataFrame) -> pl.DataFrame:
-    """Rank among the teams with a row that week; offence high-is-good, defence low-is-good (EPA allowed)."""
+    """Rank among the teams with a row that week; offense high-is-good, defense low-is-good (EPA allowed)."""
     exprs = [pl.len().over(["season", "week"]).alias("week_teams")]
     for prefix, metrics in schema.RANKED.items():
         for m in metrics:

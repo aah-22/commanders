@@ -14,7 +14,7 @@ Read `docs/commanders-build-guide.md` first; it is the source of truth for archi
   --season N --jobs plays,snap_counts`), idempotent upserts on nflverse keys, per-asset digests in `ops.dataset_versions`,
   dataset lineage logged to MLflow. Loaders are pure polars transforms (`ingest/loaders.py`), so tests feed synthetic
   frames through the production path. `ingest/derive/` rebuilds the `gm.*` tables per season as the last nightly job
-  (`--jobs derive` alone re-derives): `team_game_summary` (offence/defence per team-game with weekly ranks) and
+  (`--jobs derive` alone re-derives): `team_game_summary` (offense/defense per team-game with weekly ranks) and
   `standings`. Play filters are in `ingest/derive/filters.py` — `play_type` is the base filter, never the `pass`/`rush`
   flags; `nflv_*` columns exist only to cross-check against the `nfl.team_game_stats` mirror (passing EPA is `qb_epa`).
   `tests/seed.py` is the hand-built season the derive and API tests share.
