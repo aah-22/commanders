@@ -158,3 +158,16 @@ def test_team_map_and_id_map_helpers():
     assert m["Commanders"] == "WAS" and m["Redskins"] == "WAS" and m["Cardinals"] == "ARI"
     p = pl.DataFrame({"pfr_id": ["a", None, "a"], "gsis_id": ["1", "2", "3"]})
     assert loaders.id_map_from_players(p).rows() == [("a", "3")]
+
+
+def test_ingest_configures_the_nflreadpy_cache_with_a_path(monkeypatch, tmp_path):
+    """--full turns the filesystem cache on; nflreadpy calls .mkdir() on cache_dir, so a str crashed the backfill."""
+    import nflreadpy as nfl
+
+    from ingest.run import Ingest
+
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    Ingest(conn=None, tracker=None, cache_mode="filesystem")
+    cfg = nfl.config.get_config()
+    assert cfg.cache_dir == tmp_path / "nflreadpy" and hasattr(cfg.cache_dir, "mkdir")
+    nfl.config.update_config(cache_mode="off")

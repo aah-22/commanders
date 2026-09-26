@@ -1,3 +1,4 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, inject } from '@angular/core';
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { catchError, map, of, switchMap } from 'rxjs';
@@ -7,6 +8,22 @@ import { EpaTrendChart } from './epa-trend-chart';
 import { GameResultsTable } from './game-results-table';
 import { LeagueScatterChart } from './league-scatter-chart';
 import { RecordStrip } from './record-strip';
+
+/** What the API would return for a season it has no games for (it answers 404 instead). */
+export function emptySeason(season: number): SeasonSummary {
+  return {
+    season,
+    team: '',
+    through_week: null,
+    league_teams: 0,
+    standing: null,
+    weeks: [],
+    aggregate: null,
+    league_weekly: [],
+    next_game: null,
+    down_distance: [],
+  };
+}
 
 /** The season dashboard: record strip, EPA trend, league scatter, down × distance heatmap, game table. */
 @Component({
@@ -69,9 +86,13 @@ export class SeasonDashboardPage {
   );
   private readonly season$ = toObservable(this.season);
 
-  /** undefined while loading, null when the request failed. */
+  /** undefined while loading, null when the request failed; a 404 (season not ingested yet) is an empty season. */
   readonly summary = toSignal<SeasonSummary | null>(
-    this.season$.pipe(switchMap((s) => this.api.seasonSummary(s).pipe(catchError(() => of(null))))),
+    this.season$.pipe(
+      switchMap((s) =>
+        this.api.seasonSummary(s).pipe(catchError((e: HttpErrorResponse) => of(e.status === 404 ? emptySeason(s) : null))),
+      ),
+    ),
   );
   readonly league = toSignal(
     this.season$.pipe(switchMap((s) => this.api.seasonLeague(s).pipe(catchError(() => of(null))))),
