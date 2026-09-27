@@ -122,3 +122,34 @@ def test_gm_derive_is_idempotent(db):
     with eng.begin() as conn:
         again = derive.run_season(conn, 2026)
     assert again == first
+
+
+def test_production_builds_when_a_source_has_no_rows_for_the_season():
+    """PFR advanced stats start in 2018 and a fresh database may lack contracts; the first backfill died on 2016."""
+    from ingest.derive import production
+
+    empty = {
+        t: pl.DataFrame(schema={c.name: pl.Utf8 for c in getattr(schema, t).c}) for t in ("pfr_def_game", "contracts")
+    }
+    out = production.build(
+        seed_gm.player_game_stats_frame(),
+        seed_gm.snap_counts_frame(),
+        empty["pfr_def_game"],
+        seed_gm.rosters_frame().filter(pl.col("season") == 2026),
+        seed_gm.players_frame(),
+        empty["contracts"],
+        2026,
+    )
+    assert out.height == 16 and out["apy"].null_count() == 16 and out["pressures"].sum() == 0
+    qb = out.filter(pl.col("gsis_id") == "00-Q1").row(0, named=True)
+    assert qb["production_pct"] == 1.0 and qb["pos_group"] == "QB"  # the roster slot resolves the group without OTC
+    bare = production.build(
+        pl.DataFrame(schema={c.name: pl.Utf8 for c in schema.player_game_stats.c}),
+        pl.DataFrame(schema={c.name: pl.Utf8 for c in schema.snap_counts.c}),
+        empty["pfr_def_game"],
+        pl.DataFrame(schema={c.name: pl.Utf8 for c in schema.rosters_weekly.c}),
+        seed_gm.players_frame(),
+        empty["contracts"],
+        2016,
+    )
+    assert bare.is_empty()

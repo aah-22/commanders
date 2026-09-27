@@ -48,13 +48,21 @@ def _rate(num: pl.Expr, den: pl.Expr) -> pl.Expr:
 
 def _stats(pgs: pl.DataFrame) -> pl.DataFrame:
     if pgs.is_empty():
-        return pl.DataFrame(schema={"gsis_id": pl.Utf8, "games": pl.Int64, "stat_team": pl.Utf8, "cpoe": pl.Float64})
+        return pl.DataFrame(
+            schema={
+                "gsis_id": pl.Utf8,
+                "games": pl.Int64,
+                "stat_team": pl.Utf8,
+                "cpoe": pl.Float64,
+                **dict.fromkeys(_SUM_STATS, pl.Float64),
+            }
+        )
     df = pgs.rename({"player_id": "gsis_id"})
     exprs = [
         pl.col("game_id").n_unique().alias("games"),
         pl.col("team").sort_by("week").last().alias("stat_team"),
         _rate((pl.col("passing_cpoe") * pl.col("attempts")).sum(), pl.col("attempts").fill_null(0).sum()).alias("cpoe"),
-        *[_sum(c) for c in _SUM_STATS if c in df.columns],
+        *[_sum(c) if c in df.columns else pl.lit(0.0).alias(c) for c in _SUM_STATS],
     ]
     return df.group_by("gsis_id").agg(exprs)
 
@@ -85,8 +93,16 @@ def _snaps(snaps: pl.DataFrame) -> pl.DataFrame:
 
 
 def _pfr(pfr: pl.DataFrame) -> pl.DataFrame:
-    if pfr.is_empty():
-        return pl.DataFrame(schema={"gsis_id": pl.Utf8, "pressures": pl.Float64, "targets_allowed": pl.Float64})
+    if pfr.is_empty():  # PFR advanced stats start in 2018
+        return pl.DataFrame(
+            schema={
+                "gsis_id": pl.Utf8,
+                "pressures": pl.Float64,
+                "pfr_sacks": pl.Float64,
+                "targets_allowed": pl.Float64,
+                "passer_rating_allowed": pl.Float64,
+            }
+        )
     df = pfr.filter(pl.col("gsis_id").is_not_null())
     tgt = pl.col("def_targets").fill_null(0)
     return df.group_by("gsis_id").agg(
@@ -100,7 +116,19 @@ def _pfr(pfr: pl.DataFrame) -> pl.DataFrame:
 def _roster(rosters: pl.DataFrame) -> pl.DataFrame:
     """The latest weekly row per player (any team), which is where the current team and status live."""
     if rosters.is_empty():
-        return pl.DataFrame(schema={"gsis_id": pl.Utf8, "roster_team": pl.Utf8})
+        return pl.DataFrame(
+            schema={
+                "gsis_id": pl.Utf8,
+                "roster_team": pl.Utf8,
+                "roster_name": pl.Utf8,
+                "roster_position": pl.Utf8,
+                "depth_position": pl.Utf8,
+                "roster_birth": pl.Utf8,
+                "years_exp": pl.Float64,
+                "roster_draft": pl.Float64,
+                "status": pl.Utf8,
+            }
+        )
     return (
         rosters.sort(["gsis_id", "week"])
         .group_by("gsis_id")
@@ -120,7 +148,17 @@ def _roster(rosters: pl.DataFrame) -> pl.DataFrame:
 def _contract(contracts: pl.DataFrame, season: int) -> pl.DataFrame:
     """One active contract per player (the most recently signed)."""
     if contracts.is_empty():
-        return pl.DataFrame(schema={"gsis_id": pl.Utf8, "apy": pl.Float64})
+        return pl.DataFrame(
+            schema={
+                "gsis_id": pl.Utf8,
+                "contract_position": pl.Utf8,
+                "apy": pl.Float64,
+                "contract_years": pl.Int64,
+                "year_signed": pl.Int64,
+                "guaranteed": pl.Float64,
+                "years_left": pl.Int64,
+            }
+        )
     df = contracts.filter(pl.col("gsis_id").is_not_null() & pl.col("is_active").fill_null(False))
     df = df.sort(["gsis_id", "year_signed"]).unique(subset=["gsis_id"], keep="last")
     return df.select(
