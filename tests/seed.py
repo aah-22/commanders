@@ -210,4 +210,7 @@ def seed(tmp_path) -> str:  # noqa: ANN001
         upsert(conn, schema.Game.__table__, games_frame(), ["game_id"])
         upsert(conn, schema.plays, plays_frame(), ["game_id", "play_id"])
         upsert(conn, schema.team_game_stats, team_game_stats_frame(), ["team", "game_id"])
+        from tests import seed_gm
+
+        seed_gm.load(conn)
     return url

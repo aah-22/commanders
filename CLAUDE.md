@@ -19,7 +19,12 @@ Read `docs/commanders-build-guide.md` first; it is the source of truth for archi
   flags; `nflv_*` columns exist only to cross-check against the `nfl.team_game_stats` mirror (passing EPA is `qb_epa`).
   `tests/seed.py` is the hand-built season the derive and API tests share.
 - `models/` MLflow-tracked models (experiment `commanders`, registry alias `champion`, promotion gate = beats champion
-  and a naive baseline on hold-out MAE): production projection, acquisition value, position impact.
+  and a naive baseline on hold-out MAE): `production-next` and `acquisition-value` are sklearn pipelines trained on
+  `gm.player_season_production` (`models.train --all`); `target-rank` is a tracked formula. `models.score` writes
+  `ml.model_outputs` (the API serves them with the run id), `models.evaluate` re-scores the last completed season.
+  Position groups, headline metrics and thresholds live in `ingest/derive/positions.py`; MLflow 3 saves sklearn
+  models with skops, so tree types are listed in `models/common.py::TRUSTED`. Tests use a file-store MLflow
+  (`MLFLOW_ALLOW_FILE_STORE=true`); `--no-mlflow` runs every job without a server.
 - `db/` SQLAlchemy 2.0 ORM (`db/schema.py`) + Alembic migrations (`alembic upgrade head` runs at API start).
   Schemas `nfl` (raw mirrors), `gm` (derived), `ml` (model outputs), `ops` (pipeline runs). On SQLite (tests)
   schemas collapse to plain tables.

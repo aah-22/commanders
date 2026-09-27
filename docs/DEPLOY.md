@@ -71,3 +71,6 @@ Loki: `{job="docker"} |= "ingest complete"`.
 - Memory: API ≈ 200 MB idle; the one-off backfill peaks ≈ 1–1.5 GB (run it at night; `mem_limit` if needed).
 - Volumes: `commanders-pgdata` (the database), `commanders-cache` (nflreadpy cache). Droplet snapshots cover both.
 - MLflow unreachable → jobs still complete (tracking becomes a no-op with a one-line notice), like draft-engine.
+- Phase 4 bootstrap on a database ingested before it (migration `0005` runs at API start): from the api container
+  `python -m ingest.run --full --jobs derive`, then `python -m models.train --all` and `python -m models.score`.
+  The scheduled `weekly-train`, `weekly-evaluate` and `nightly-score` tasks keep them fresh from then on.

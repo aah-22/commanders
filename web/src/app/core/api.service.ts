@@ -254,11 +254,154 @@ export interface GamePlays {
   plays: PlayRow[];
 }
 
+/** One arrival with this season's production and the value model's expectation; `grade` is A–F on the gap. */
+export interface AcquisitionCard {
+  gsis_id: string;
+  name: string | null;
+  position: string | null;
+  pos_group: string | null;
+  how: string;
+  date: string | null;
+  from_team: string | null;
+  draft_round: number | null;
+  draft_pick: number | null;
+  arrival_season: number;
+  current_team: string | null;
+  apy: number | null;
+  contract_years: number | null;
+  guaranteed: number | null;
+  year_signed: number | null;
+  years_left: number | null;
+  age: number | null;
+  games: number | null;
+  snaps: number | null;
+  snap_share: number | null;
+  metric: string | null;
+  production: number | null;
+  production_pct: number | null;
+  qualified: boolean | null;
+  cost_pct: number | null;
+  expected_pct: number | null;
+  basis: 'model' | 'cost';
+  value_gap: number | null;
+  grade: string | null;
+  run_id: string | null;
+  model_version: string | null;
+}
+
+export interface Acquisitions {
+  season: number;
+  team: string;
+  since: number;
+  cards: AcquisitionCard[];
+}
+
+export interface Starter {
+  gsis_id: string;
+  name: string | null;
+  position: string | null;
+  age: number | null;
+  snap_share: number | null;
+  production_pct: number | null;
+  years_left: number | null;
+  apy: number | null;
+}
+
+export interface NeedGroup {
+  pos_group: string;
+  starters: number;
+  starter_pct: number | null;
+  starters_expiring: number;
+  starters_aging: number;
+  avg_age: number | null;
+  contract_years_left: number | null;
+  depth: number;
+  need_score: number;
+  need_rank: number | null;
+  starter_list: Starter[];
+}
+
+export interface Need {
+  season: number;
+  team: string;
+  groups: NeedGroup[];
+}
+
+export interface Target {
+  gsis_id: string;
+  name: string | null;
+  team: string | null;
+  position: string | null;
+  pos_group: string | null;
+  age: number | null;
+  games: number | null;
+  production_pct: number | null;
+  projected_pct: number | null;
+  projection_run_id: string | null;
+  apy: number | null;
+  years_left: number | null;
+  reason: string | null;
+  need_score: number | null;
+  score: number;
+  run_id: string | null;
+  version: string | null;
+}
+
+export interface Targets {
+  season: number;
+  team: string;
+  position: string | null;
+  live: boolean;
+  scored_at: string | null;
+  targets: Target[];
+}
+
+export interface ModelOutputSummary {
+  model: string;
+  season: number;
+  version: string | null;
+  run_id: string | null;
+  rows: number;
+  scored_at: string | null;
+}
+
+export interface JobSummary {
+  kind: string;
+  status: string;
+  season: number | null;
+  finished_at: string;
+  detail: Record<string, unknown>;
+}
+
+export interface Models {
+  experiment: string;
+  tracking: string;
+  outputs: ModelOutputSummary[];
+  jobs: JobSummary[];
+}
+
 /** Thin typed client over the read-only API; nginx proxies /api/ to the FastAPI service, so paths stay relative. */
 @Injectable({ providedIn: 'root' })
 export class ApiService {
   private readonly http = inject(HttpClient);
   private readonly base = '/api';
+
+  gmAcquisitions(): Observable<Acquisitions> {
+    return this.http.get<Acquisitions>(`${this.base}/v1/gm/acquisitions`);
+  }
+
+  gmNeed(): Observable<Need> {
+    return this.http.get<Need>(`${this.base}/v1/gm/need`);
+  }
+
+  gmTargets(position: string | null = null): Observable<Targets> {
+    const params = position ? new HttpParams().set('position', position) : new HttpParams();
+    return this.http.get<Targets>(`${this.base}/v1/gm/targets`, { params });
+  }
+
+  models(): Observable<Models> {
+    return this.http.get<Models>(`${this.base}/v1/models`);
+  }
 
   game(gameId: string): Observable<GameDetail> {
     return this.http.get<GameDetail>(`${this.base}/v1/games/${gameId}`);
