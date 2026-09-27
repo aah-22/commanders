@@ -73,7 +73,7 @@ jobs:
         with: { name: py-coverage }
       - uses: actions/download-artifact@v4
         with: { name: web-coverage, path: web/coverage }
-      - uses: SonarSource/sonarqube-scan-action@v5
+      - uses: SonarSource/sonarqube-scan-action@v8
         if: env.SONAR_TOKEN != ''
         env:
           SONAR_HOST_URL: https://sonarcloud.io
