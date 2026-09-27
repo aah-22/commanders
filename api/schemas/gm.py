@@ -33,8 +33,10 @@ class AcquisitionCard(BaseModel):
     production_pct: float | None = None
     qualified: bool | None = None
     cost_pct: float | None = None
+    graded_seasons: list[int] = []  # the qualified seasons on the team since arrival that the grade pools
+    tenure_pct: float | None = None  # snap-weighted production percentile over those seasons
     expected_pct: float | None = None
-    basis: str  # "model" (acquisition-value champion) or "cost" (APY percentile, before any model has scored)
+    basis: str  # "model" (acquisition-value champion), "cost" (APY percentile), or "mixed" across seasons
     value_gap: float | None = None
     grade: str | None = None
     run_id: str | None = None

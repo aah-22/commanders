@@ -281,8 +281,10 @@ export interface AcquisitionCard {
   production_pct: number | null;
   qualified: boolean | null;
   cost_pct: number | null;
+  graded_seasons: number[];
+  tenure_pct: number | null;
   expected_pct: number | null;
-  basis: 'model' | 'cost';
+  basis: 'model' | 'cost' | 'mixed';
   value_gap: number | null;
   grade: string | null;
   run_id: string | null;

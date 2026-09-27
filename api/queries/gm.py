@@ -49,29 +49,93 @@ def grade(gap: float | None) -> str | None:
     return "F"
 
 
-def acquisitions(conn: Connection, season: int, team: str, since: int) -> list[dict]:
-    """Arrivals from `since` through `season`, with this season's production and the value model's expectation."""
+def tenure(conn: Connection, gsis_ids: list[str], team: str, first: int, last: int) -> dict[str, list[dict]]:
+    """Every season from `first` to `last` each player spent on `team`, with its production and value expectation."""
+    if not gsis_ids:
+        return {}
     rows = conn.execute(
-        select(ACQ)
-        .where(ACQ.c.team == team, ACQ.c.season.between(since, season))
-        .order_by(ACQ.c.season.desc(), ACQ.c.how)
+        select(PSP).where(PSP.c.gsis_id.in_(gsis_ids), PSP.c.team == team, PSP.c.season.between(first, last))
     )
-    prod = production(conn, season)
-    value = outputs(conn, "acquisition-value", season)
-    out = []
+    value = {
+        (r.gsis_id, r.season): dict(r._mapping)
+        for r in conn.execute(
+            select(MO).where(
+                MO.c.model == "acquisition-value", MO.c.gsis_id.in_(gsis_ids), MO.c.season.between(first, last)
+            )
+        )
+    }
+    out: dict[str, list[dict]] = {}
     for r in rows:
-        a = dict(r._mapping)
+        row = dict(r._mapping)
+        row["value"] = value.get((row["gsis_id"], row["season"]))
+        out.setdefault(row["gsis_id"], []).append(row)
+    return out
+
+
+def pooled(seasons: list[dict], arrived: int) -> dict:
+    """Snap-weighted production percentile and expectation over the qualified seasons since arrival.
+
+    The expectation for a season is the acquisition-value model's when it has scored that season, else the cost
+    percentile; `basis` says which (or "mixed")."""
+    graded = sorted(
+        (s for s in seasons if s["season"] >= arrived and s["qualified"] and s["production_pct"] is not None),
+        key=lambda s: s["season"],
+    )
+    pairs, bases, run_id, version = [], set(), None, None
+    for s in graded:
+        v = s["value"]
+        exp = v["value"] if v else s["cost_pct"]
+        if exp is None:
+            continue
+        bases.add("model" if v else "cost")
+        if v:
+            run_id, version = v["run_id"], v["version"]
+        pairs.append((s["season"], s["production_pct"], exp, max(s["snaps"] or 0, 1)))
+    if not pairs:
+        return {
+            "graded_seasons": [],
+            "tenure_pct": None,
+            "expected_pct": None,
+            "basis": "cost",
+            "run_id": None,
+            "model_version": None,
+        }
+    w = sum(p[3] for p in pairs)
+    return {
+        "graded_seasons": [p[0] for p in pairs],
+        "tenure_pct": sum(p[1] * p[3] for p in pairs) / w,
+        "expected_pct": sum(p[2] * p[3] for p in pairs) / w,
+        "basis": bases.pop() if len(bases) == 1 else "mixed",
+        "run_id": run_id,
+        "model_version": version,
+    }
+
+
+def acquisitions(conn: Connection, season: int, team: str, since: int) -> list[dict]:
+    """Arrivals from `since` through `season`, each graded over every qualified season he has spent on the team since
+    arriving (snap-weighted), with this season's production shown alongside."""
+    rows = [
+        dict(r._mapping)
+        for r in conn.execute(
+            select(ACQ)
+            .where(ACQ.c.team == team, ACQ.c.season.between(since, season))
+            .order_by(ACQ.c.season.desc(), ACQ.c.how)
+        )
+    ]
+    prod = production(conn, season)
+    history = tenure(conn, [a["gsis_id"] for a in rows], team, since, season)
+    out = []
+    for a in rows:
         p = prod.get(a["gsis_id"], {})
-        v = value.get(a["gsis_id"])
         card = {**a, "arrival_season": a["season"], **{k: p.get(k) for k in PRODUCTION_FIELDS}}
         card["current_team"] = p.get("team")
         card["pos_group"] = a["pos_group"] or p.get("pos_group")
-        actual = p.get("production_pct")
-        if v is not None:
-            card.update(expected_pct=v["value"], basis="model", run_id=v["run_id"], model_version=v["version"])
-        else:
-            card.update(expected_pct=p.get("cost_pct"), basis="cost", run_id=None, model_version=None)
-        gap = actual - card["expected_pct"] if actual is not None and card["expected_pct"] is not None else None
+        card.update(pooled(history.get(a["gsis_id"], []), a["season"]))
+        gap = (
+            card["tenure_pct"] - card["expected_pct"]
+            if card["tenure_pct"] is not None and card["expected_pct"] is not None
+            else None
+        )
         card["value_gap"] = gap
         card["grade"] = grade(gap)
         out.append(card)

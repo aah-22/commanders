@@ -134,3 +134,56 @@ def test_models_inventory(client):
     by = {(o["model"], o["season"]): o for o in j["outputs"]}
     assert by[("acquisition-value", 2026)]["rows"] == 1 and by[("target-rank", 2026)]["run_id"] == "run-score"
     assert isinstance(j["jobs"], list)
+
+
+def test_a_grade_pools_every_qualified_season_on_the_team_since_arrival(client):
+    """Samuel arrived by trade in 2025: his card pools 2025 (800 snaps, 90th pct) with 2026 (110 snaps, 37.5th)."""
+    c, eng = client
+    with eng.begin() as conn:
+        conn.execute(
+            schema.acquisitions.insert(),
+            [
+                {
+                    "season": 2025,
+                    "gsis_id": "00-W2",
+                    "team": "WAS",
+                    "name": "Deebo Samuel",
+                    "position": "WR",
+                    "pos_group": "WR",
+                    "how": "trade",
+                    "from_team": "SF",
+                }
+            ],
+        )
+        conn.execute(
+            schema.player_season_production.insert(),
+            [
+                {
+                    "season": 2025,
+                    "gsis_id": "00-W2",
+                    "team": "WAS",
+                    "pos_group": "WR",
+                    "snaps": 800,
+                    "qualified": True,
+                    "production_pct": 0.9,
+                    "cost_pct": 0.6,
+                },
+                {
+                    "season": 2024,
+                    "gsis_id": "00-W2",
+                    "team": "SF",
+                    "pos_group": "WR",
+                    "snaps": 900,
+                    "qualified": True,
+                    "production_pct": 0.1,
+                    "cost_pct": 0.6,
+                },
+            ],
+        )
+    cache._cache = None
+    card = next(k for k in c.get("/v1/gm/acquisitions").json()["cards"] if k["gsis_id"] == "00-W2")
+    assert card["graded_seasons"] == [2025, 2026]  # 2024 was with SF, before he arrived
+    assert card["tenure_pct"] == pytest.approx((0.9 * 800 + 0.375 * 110) / 910)
+    assert card["production_pct"] == 0.375  # this season still shown on its own
+    assert card["expected_pct"] == pytest.approx(0.6) and card["basis"] == "cost"
+    assert card["grade"] == "A"  # +.24 over what the money usually buys
