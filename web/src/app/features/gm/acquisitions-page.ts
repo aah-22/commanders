@@ -140,7 +140,7 @@ export class AcquisitionsPage {
   readonly num = fmtNum;
 
   readonly seasons = computed(() => [...new Set((this.data()?.cards ?? []).map((c) => c.arrival_season))].sort((a, b) => b - a));
-  readonly hows = computed(() => [...new Set((this.data()?.cards ?? []).map((c) => c.how))].sort());
+  readonly hows = computed(() => [...new Set((this.data()?.cards ?? []).map((c) => c.how))].sort((a, b) => a.localeCompare(b)));
   readonly counts = computed(() => {
     const by = new Map<string, number>();
     for (const c of this.data()?.cards ?? []) by.set(c.how, (by.get(c.how) ?? 0) + 1);
@@ -187,6 +187,6 @@ export class AcquisitionsPage {
     if (c.production == null) return '–';
     if (c.metric === 'snap_share') return fmtPct(c.production);
     if (c.metric === 'passer_rating_allowed') return fmtNum(c.production, 1);
-    return fmtNum(c.production, c.metric?.startsWith('epa') ? 3 : 3);
+    return fmtNum(c.production, 3);
   }
 }

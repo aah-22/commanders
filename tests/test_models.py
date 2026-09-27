@@ -187,7 +187,8 @@ def test_jobs_run_without_mlflow(env, monkeypatch_module):
     monkeypatch_module.setenv("NO_MLFLOW", "1")
     out = train.main(["--model", "acquisition-value", "--no-mlflow"])
     assert out["acquisition-value"]["version"] is None and out["acquisition-value"]["promoted"] is False
-    assert score.main(["--no-mlflow"]) == {"production-next": 0, "acquisition-value": 0, "target-rank": 0} or True
+    counts = score.main(["--no-mlflow"])  # no champions to score with; the formula still ranks targets
+    assert (counts["production-next"], counts["acquisition-value"]) == (0, 0) and counts["target-rank"] > 0
     assert evaluate.main(["--no-mlflow"]) is None
     monkeypatch_module.delenv("NO_MLFLOW")
     assert os.environ.get("NO_MLFLOW") is None
