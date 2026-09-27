@@ -33,3 +33,25 @@ export function ordinal(n: number | null | undefined): string {
 export function record(wins: number, losses: number, ties: number): string {
   return ties ? `${wins}–${losses}–${ties}` : `${wins}–${losses}`;
 }
+
+/** "Q2 07:32" from nflverse's seconds remaining in the game; overtime counts its own clock down. */
+export function clock(qtr: number | null | undefined, secondsRemaining: number | null | undefined): string {
+  if (qtr == null || secondsRemaining == null) return '–';
+  const inQuarter = qtr <= 4 ? Math.max(0, secondsRemaining - (4 - qtr) * 900) : secondsRemaining;
+  const m = Math.floor(inQuarter / 60);
+  const s = inQuarter % 60;
+  return `${qtr <= 4 ? `Q${qtr}` : 'OT'} ${m}:${s.toString().padStart(2, '0')}`;
+}
+
+/** "OWN 25" / "OPP 18" / "50" from yardline_100 (yards to the opponent's goal line). */
+export function yardline(yl100: number | null | undefined): string {
+  if (yl100 == null) return '–';
+  if (yl100 === 50) return '50';
+  return yl100 > 50 ? `OWN ${100 - yl100}` : `OPP ${yl100}`;
+}
+
+/** "3rd & 4", "1st & Goal"; special-teams and dead-ball rows (no down) print as an en dash. */
+export function downDistance(down: number | null | undefined, ydstogo: number | null | undefined, goalToGo?: number | null): string {
+  if (down == null) return '–';
+  return `${ordinal(down)} & ${goalToGo ? 'Goal' : (ydstogo ?? '–')}`;
+}
