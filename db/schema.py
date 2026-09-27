@@ -600,4 +600,101 @@ standings = Table(
     schema="gm",
 )
 
-DERIVED: dict[str, Table] = {t.name: t for t in (team_game_summary, standings)}
+# --------------------------------------------------------------------------- the GM lens (phase 4)
+# Per-player season-to-date production with one headline metric per position group and its league percentile among
+# qualified players, plus the player's active contract (APY percentile at the position = cost). See
+# ingest/derive/positions.py for the groups, headline metrics and qualification thresholds.
+PRODUCTION_METRICS = (
+    "epa_per_play cpoe epa_per_touch epa_per_target target_share pressure_rate pressures sacks tfl play_rate "
+    "passer_rating_allowed targets_allowed pass_defended interceptions"
+)
+player_season_production = Table(
+    "player_season_production",
+    metadata,
+    Column("season", Integer, primary_key=True),
+    Column("gsis_id", String(16), primary_key=True),
+    Column("name", Text),
+    Column("team", String(4)),
+    Column("position", String(8)),
+    Column("pos_group", String(4), index=True),
+    Column("age", Float),
+    Column("years_exp", Integer),
+    Column("draft_number", Integer),
+    Column("games", Integer),
+    Column("snaps", Integer),
+    Column("snap_share", Float),
+    Column("metric", String(24)),
+    Column("production", Float),
+    Column("production_pct", Float),
+    Column("qualified", Boolean),
+    *_cols(PRODUCTION_METRICS),
+    Column("apy", Float),
+    Column("contract_years", Integer),
+    Column("year_signed", Integer),
+    Column("years_left", Integer),
+    Column("guaranteed", Float),
+    Column("cost_pct", Float),
+    Index("ix_psp_season_team", "season", "team"),
+    schema="gm",
+)
+
+# Arrivals for the configured team: how they came (draft / trade / free agent), when, from where, and the contract.
+acquisitions = Table(
+    "acquisitions",
+    metadata,
+    Column("season", Integer, primary_key=True),
+    Column("gsis_id", String(16), primary_key=True),
+    Column("team", String(4)),
+    Column("name", Text),
+    Column("position", String(8)),
+    Column("pos_group", String(4)),
+    Column("how", String(12)),
+    Column("date", String(10)),
+    Column("from_team", String(4)),
+    Column("draft_round", Integer),
+    Column("draft_pick", Integer),
+    Column("apy", Float),
+    Column("contract_years", Integer),
+    Column("guaranteed", Float),
+    Column("year_signed", Integer),
+    schema="gm",
+)
+
+# Need per position group for the configured team: starters' production, expiring deals, age → 0–100 need score.
+positional_need = Table(
+    "positional_need",
+    metadata,
+    Column("season", Integer, primary_key=True),
+    Column("pos_group", String(4), primary_key=True),
+    Column("team", String(4)),
+    Column("starters", Integer),
+    Column("starter_pct", Float),
+    Column("starters_expiring", Integer),
+    Column("starters_aging", Integer),
+    Column("avg_age", Float),
+    Column("contract_years_left", Float),
+    Column("depth", Integer),
+    Column("need_score", Float),
+    Column("need_rank", Integer),
+    schema="gm",
+)
+
+DERIVED: dict[str, Table] = {
+    t.name: t for t in (team_game_summary, standings, player_season_production, acquisitions, positional_need)
+}
+
+# --------------------------------------------------------------------------- model outputs (ml.*), written by score
+model_outputs = Table(
+    "model_outputs",
+    metadata,
+    Column("model", String(24), primary_key=True),
+    Column("season", Integer, primary_key=True),
+    Column("gsis_id", String(16), primary_key=True),
+    Column("version", String(16)),
+    Column("run_id", String(64)),
+    Column("value", Float),
+    Column("detail", JSON),
+    Column("scored_at", DateTime(timezone=True)),
+    schema="ml",
+)
+ML: dict[str, Table] = {model_outputs.name: model_outputs}

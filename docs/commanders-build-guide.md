@@ -53,7 +53,9 @@ nflverse (nflreadpy)                           Coolify Compose resource `command
    Built: drive points reconcile to the final score on every 2026 game (checked on 2026_01_WAS_PHI: 24 drives, 22–24).
 4. **GM views + models** — contracts/draft/rosters, `acquisitions`, `positional_need`, three MLflow models with
    promotion gate, report cards + target board pages. DoD: every 2025–26 arrival has a card; targets list has cost,
-   age, projection and the run_id behind it.
+   age, projection and the run_id behind it. Built: `gm.player_season_production`, `gm.acquisitions`,
+   `gm.positional_need`, `ml.model_outputs` (migration `0005`), `models/` (train / score / evaluate), `/v1/gm/*`,
+   `/v1/models`, the Acquisitions, Targets and About pages.
 5. **Hardening + deploy** — Trivy/SBOM/cosign/CodeQL/gitleaks in CI, rate limiting, headers, Coolify resource,
    tunnel, DEPLOY.md, caabi.dev link. DoD: public URL up, all CI gates enforced, runbook written.
 
@@ -130,6 +132,34 @@ Sunday lands overnight; the job re-tries and marks `games.stats_complete`.
      teams ≤ .350 win %, with age, projected production, estimated cost.
 - Model outputs are written to `model_outputs` nightly; the API serves them with run_id for lineage.
 
+Built (phase 4), with the simplifications that made it shippable from the data nflverse actually publishes:
+- **Position groups** (`ingest/derive/positions.py`): QB RB WR TE OL IDL ED LB CB S ST, resolved from the most precise
+  source first (OTC contract position → depth-chart slot → 2025+ coarse roster position → `nfl.players`). One headline
+  metric per group: QB EPA/play over attempts + sacks + carries, RB EPA/touch, WR/TE EPA/target, IDL/ED PFR pressures
+  per defensive snap, LB plays made (tackles + TFL + sacks + PD + INT + FF) per snap, CB/S PFR passer rating allowed
+  (low is good, percentile flipped), OL and ST snap share (no public per-lineman production stat; availability is the
+  honest proxy). Participation data stops at 2025, so no coverage-EPA or personnel metrics.
+- **`gm.player_season_production`** (`ingest/derive/production.py`): every player with stats, snaps or a roster row in
+  the season; `production_pct` is the percentile among the group's *qualified* players (season-total floors in
+  `positions.MIN_SAMPLE`, e.g. 60 QB plays, 12 WR targets, 8 CB targets), `cost_pct` the APY percentile among the
+  group's contracted players; age at 1 Sep, years of experience, draft slot, the active contract and years left.
+- **`gm.acquisitions`** (`ingest/derive/acquisitions.py`): draft picks, trades received and free-agent signings (an
+  active contract with the team signed that year by someone not on the previous season's final roster — a re-signing
+  is not an arrival); the card carries the player's most recently signed contract.
+- **`gm.positional_need`** (`ingest/derive/need.py`): starters = top-N by snap share (`positions.STARTERS`);
+  need = 50 × (1 − starters' mean percentile, 0.5 when the group has no metric) + 25 × share expiring this season
+  + 25 × share past the group's aging mark (`positions.AGING`).
+- **Models** (`models/`): `production-next` and `acquisition-value` are `HistGradientBoostingRegressor` pipelines
+  (one-hot position group + numeric features) trained on `gm.player_season_production` across seasons, validated on
+  the latest target season held out, refit on everything, logged with `skops` trusted types and registered; promoted
+  to `champion` only when validation MAE beats both the current champion's and the naive baseline's (this season's
+  percentile for the projection, the cost percentile for value). `target-rank` is a tracked formula, not a learned
+  model: need/100 × projected percentile × 0.7 past the aging mark, over players not on the team who are pending free
+  agents (contract ends this season) or productive on a team at ≤ .350. `models.score` writes `ml.model_outputs`
+  (delete-then-insert per model and season; model rows carry the champion's run id, formula rows the score run's);
+  `models.evaluate` re-scores the latest completed season pair out of sample. All three jobs run without MLflow
+  (`--no-mlflow` or an unreachable server) and record a `pipeline_runs` row.
+
 
 ## §7 API
 ### API (FastAPI, read-only, `GET` only, cached with an in-process TTL + `Cache-Control`, `slowapi` rate limit, CORS
@@ -148,6 +178,13 @@ result; the focus team's down × distance cells for this game against the league
 `/api/v1/games/{game_id}/plays?posteam=&down=&distance=&rz=&drive=&type=` (`type` ∈ all / scrimmage / pass / run /
 special; game order). The focus team is the configured one when it played, else the home team, so every game is
 browsable. A malformed id is 422, an unknown one 404. Queries in `api/queries/game.py`.
+Built (phase 4): `/api/v1/gm/acquisitions?season=&since=` (cards for arrivals `since`–`season`, default the last two
+seasons, with this season's production, the value model's expected percentile when it has scored — else the cost
+percentile, labelled `basis` — the gap and an A–F grade), `/api/v1/gm/need?season=` (need rows with the starters
+behind each), `/api/v1/gm/targets?season=&position=&per_group=` (from `ml.model_outputs` `target-rank`, or the same
+formula applied on request with `live: true` until the nightly score has run; top `per_group` per position unless one
+is asked for), `/api/v1/models` (per model and season the version, run id and rows, plus the last ingest / train /
+score / evaluate jobs). Queries in `api/queries/gm.py`.
 Planned: `/api/players/{id}` · `/api/players/{id}/games` ·
 `/api/gm/acquisitions?season=` · `/api/gm/need` · `/api/gm/targets?position=` · `/api/models` (versions, metrics, run
 links) · `/health`.
@@ -167,9 +204,14 @@ game caption, `PlayFiltersBar` whose state lives in the URL query string so a fi
 clock, down & distance, ball spot, description chips for TD / INT / FUM / sack / flag / 1st, EPA coloured beyond ±0.5;
 `/explorer` alone lists the team's played games; the season game table links each played row through;
 `core/format.ts` gained `clock`, `yardline`, `downDistance`),
-`/players/:id` Player page (game log, percentiles, contract), `/gm/acquisitions` report cards (production vs cost,
-sortable), `/gm/targets` target board (need index by position, ranked targets with cost/age/production), `/about`
-(data lineage, model versions from `/api/models`). Palette: `#c9a233` on `#0a0a0a`, panels `#111111`.
+`/gm/acquisitions` report cards (built: `features/gm/acquisitions-page.ts` — `ValueScatterChart` production vs cost
+percentile with the fair line, a sortable table filtered by arrival season and how, `GradeChip` A–F, the metric
+value with its sample and whether the expectation came from the model or the cost percentile),
+`/gm/targets` target board (built: `NeedChart` bars worst-first with the starters table, then the ranked targets with
+the position filter in the URL and a `live` chip when computed on request), `/about` (built:
+`features/about/about-page.ts` — data lineage, the three models explained, `/api/v1/models` inventory and last jobs),
+`/players/:id` Player page (game log, percentiles, contract; not built). Palette: `#c9a233` on `#0a0a0a`, panels
+`#111111`.
 
 
 ## §9 DevSecOps, container, deploy
@@ -194,6 +236,11 @@ Deployment steps live in `docs/DEPLOY.md`.
 ## §10 Runbook
 - Nightly: `nightly-ingest` 05:10 ET, `nightly-score` 06:30 ET; weekly `weekly-train` / `weekly-evaluate` Tue 07:00.
 - Re-derive a season after a code change: `python -m ingest.run --season 2026 --jobs derive`.
+- After deploying phase 4: `python -m ingest.run --full --jobs derive` (fills `gm.player_season_production` for every
+  season the models train on; a few minutes), then `python -m models.train --all` and `python -m models.score`. Until
+  the score job has run, the target board computes on request and the report cards grade against the cost percentile.
+- Models need at least two seasons of qualified production to hold one out; with fewer, `train` logs "skipped" and
+  exits 0. A candidate that does not beat both the champion and the naive baseline is registered but not promoted.
 - After deploying phase 2 on a database ingested before it: `python -m ingest.run --season 2026 --jobs plays,team_game_stats,derive`
   (re-ingests plays so `qb_epa` is populated; the cross-check columns stay null for seasons not re-ingested) and
   `python -m ingest.run --full --jobs team_game_stats,derive` for the earlier seasons.

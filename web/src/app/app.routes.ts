@@ -7,6 +7,7 @@ export const routes: Routes = [
   { path: 'explorer/:gameId', loadComponent: () => import('./features/explorer/explorer-page').then((m) => m.DriveExplorerPage) },
   { path: 'gm/acquisitions', loadComponent: () => import('./features/gm/acquisitions-page').then((m) => m.AcquisitionsPage) },
   { path: 'gm/targets', loadComponent: () => import('./features/gm/targets-page').then((m) => m.TargetsPage) },
+  { path: 'about', loadComponent: () => import('./features/about/about-page').then((m) => m.AboutPage) },
   { path: 'players/:id', loadComponent: () => import('./features/player/player-page').then((m) => m.PlayerPage) },
   { path: '**', redirectTo: 'season' },
 ];

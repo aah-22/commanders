@@ -23,5 +23,6 @@ export class App {
     { path: '/explorer', label: 'Drives & plays' },
     { path: '/gm/acquisitions', label: 'Acquisitions' },
     { path: '/gm/targets', label: 'Targets' },
+    { path: '/about', label: 'About' },
   ];
 }

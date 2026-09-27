@@ -31,7 +31,7 @@ def row(eng, sql: str, **params) -> dict:
 
 def test_display_metrics_follow_the_clean_filter(db):
     eng, counts = db
-    assert counts == {"team_game_summary": 10, "standings": 12}  # 5 played games × 2, 6 teams × 2 weeks
+    assert (counts["team_game_summary"], counts["standings"]) == (10, 12)  # 5 played games × 2, 6 teams × 2 weeks
     was = row(eng, "SELECT * FROM team_game_summary WHERE team='WAS' AND week=1")
     assert (was["opponent"], was["is_home"], was["result"], was["points_for"]) == ("NYG", True, "W", 27)
     assert was["off_plays"] == 7  # no kickoff, punt, no-play, kneel, spike or aborted snap

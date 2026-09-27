@@ -34,6 +34,18 @@ export function record(wins: number, losses: number, ties: number): string {
   return ties ? `${wins}–${losses}–${ties}` : `${wins}–${losses}`;
 }
 
+/** "$12.7M" from an APY in millions (OTC's unit); under a million prints in thousands. */
+export function fmtMoney(m: number | null | undefined): string {
+  if (m === null || m === undefined || Number.isNaN(m)) return '–';
+  return m >= 1 ? `$${m.toFixed(1)}M` : `$${Math.round(m * 1000)}K`;
+}
+
+/** A percentile as an ordinal rank band: 0.93 → "93rd". */
+export function fmtPctile(x: number | null | undefined): string {
+  if (x === null || x === undefined || Number.isNaN(x)) return '–';
+  return ordinal(Math.max(1, Math.round(100 * x)));
+}
+
 /** "Q2 07:32" from nflverse's seconds remaining in the game; overtime counts its own clock down. */
 export function clock(qtr: number | null | undefined, secondsRemaining: number | null | undefined): string {
   if (qtr == null || secondsRemaining == null) return '–';
