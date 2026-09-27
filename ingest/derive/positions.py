@@ -10,6 +10,8 @@ from __future__ import annotations
 import polars as pl
 
 GROUPS = ["QB", "RB", "WR", "TE", "OL", "IDL", "ED", "LB", "CB", "S", "ST"]
+# special teams has no production metric worth a need score or a target (snap share says nothing about a kicker)
+NEED_GROUPS = [g for g in GROUPS if g != "ST"]
 
 # any label any source uses → group
 _MAP: dict[str, str] = {

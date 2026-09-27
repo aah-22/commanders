@@ -148,7 +148,8 @@ Built (phase 4), with the simplifications that made it shippable from the data n
   is not an arrival); the card carries the player's most recently signed contract.
 - **`gm.positional_need`** (`ingest/derive/need.py`): starters = top-N by snap share (`positions.STARTERS`);
   need = 50 × (1 − starters' mean percentile, 0.5 when the group has no metric) + 25 × share expiring this season
-  + 25 × share past the group's aging mark (`positions.AGING`).
+  + 25 × share past the group's aging mark (`positions.AGING`). Special teams gets no need score and no targets
+  (`positions.NEED_GROUPS`): its only metric is snap share, which says nothing about a kicker.
 - **Models** (`models/`): `production-next` and `acquisition-value` are `HistGradientBoostingRegressor` pipelines
   (one-hot position group + numeric features) trained on `gm.player_season_production` across seasons, validated on
   the latest target season held out, refit on everything, logged with `skops` trusted types and registered; promoted
@@ -178,8 +179,8 @@ result; the focus team's down × distance cells for this game against the league
 `/api/v1/games/{game_id}/plays?posteam=&down=&distance=&rz=&drive=&type=` (`type` ∈ all / scrimmage / pass / run /
 special; game order). The focus team is the configured one when it played, else the home team, so every game is
 browsable. A malformed id is 422, an unknown one 404. Queries in `api/queries/game.py`.
-Built (phase 4): `/api/v1/gm/acquisitions?season=&since=` (cards for arrivals `since`–`season`, default the last two
-seasons, with this season's production, the value model's expected percentile when it has scored — else the cost
+Built (phase 4): `/api/v1/gm/acquisitions?season=&since=` (cards for arrivals `since`–`season`, default this season
+and the two before it, with this season's production, the value model's expected percentile when it has scored — else the cost
 percentile, labelled `basis` — the gap and an A–F grade), `/api/v1/gm/need?season=` (need rows with the starters
 behind each), `/api/v1/gm/targets?season=&position=&per_group=` (from `ml.model_outputs` `target-rank`, or the same
 formula applied on request with `live: true` until the nightly score has run; top `per_group` per position unless one

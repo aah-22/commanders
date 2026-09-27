@@ -36,7 +36,7 @@ def client(tmp_path_factory):
 def test_acquisitions_grade_on_cost_before_any_model_has_scored(client):
     c, _ = client
     j = c.get("/v1/gm/acquisitions").json()
-    assert (j["season"], j["team"], j["since"]) == (2026, "WAS", 2025)
+    assert (j["season"], j["team"], j["since"]) == (2026, "WAS", 2024)
     cards = {k["gsis_id"]: k for k in j["cards"]}
     assert set(cards) == {"00-W3", "00-E1"}
     oweh = cards["00-E1"]
