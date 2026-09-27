@@ -143,7 +143,8 @@ Built (phase 4), with the simplifications that made it shippable from the data n
   the season; `production_pct` is the percentile among the group's *qualified* players (season-total floors in
   `positions.MIN_SAMPLE`, e.g. 60 QB plays, 12 WR targets, 8 CB targets), `cost_pct` the APY percentile among the
   group's contracted players; age at 1 Sep, years of experience, draft slot, the active contract and years left.
-- **`gm.acquisitions`** (`ingest/derive/acquisitions.py`): draft picks, trades received and free-agent signings (an
+- **`gm.acquisitions`** (`ingest/derive/acquisitions.py`): draft picks, trades received (a player drafted with a
+  traded pick counts as a draft arrival: nflverse puts his id on the pick's row) and free-agent signings (an
   active contract with the team signed that year by someone not on the previous season's final roster — a re-signing
   is not an arrival); the card carries the player's most recently signed contract.
 - **`gm.positional_need`** (`ingest/derive/need.py`): starters = top-N by snap share (`positions.STARTERS`);
@@ -180,8 +181,10 @@ result; the focus team's down × distance cells for this game against the league
 special; game order). The focus team is the configured one when it played, else the home team, so every game is
 browsable. A malformed id is 422, an unknown one 404. Queries in `api/queries/game.py`.
 Built (phase 4): `/api/v1/gm/acquisitions?season=&since=` (cards for arrivals `since`–`season`, default this season
-and the two before it, with this season's production, the value model's expected percentile when it has scored — else the cost
-percentile, labelled `basis` — the gap and an A–F grade), `/api/v1/gm/need?season=` (need rows with the starters
+and the two before it, graded over every qualified season the player has spent on the team since arriving —
+snap-weighted production percentile against the snap-weighted expectation, the value model's where it has scored that
+season, else the cost percentile, labelled `basis` — with this season's production shown alongside; `models.score`
+scores `acquisition-value` for every season in that window), `/api/v1/gm/need?season=` (need rows with the starters
 behind each), `/api/v1/gm/targets?season=&position=&per_group=` (from `ml.model_outputs` `target-rank`, or the same
 formula applied on request with `live: true` until the nightly score has run; top `per_group` per position unless one
 is asked for), `/api/v1/models` (per model and season the version, run id and rows, plus the last ingest / train /

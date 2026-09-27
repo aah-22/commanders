@@ -56,6 +56,8 @@ describe('GM pages', () => {
     expect(el.querySelectorAll('app-grade-chip .g-A').length).toBe(1);
     expect(el.querySelectorAll('app-grade-chip .g-F').length).toBe(1);
     expect(el.textContent).toContain('R3 #71');
+    expect(el.textContent).toContain('38th · 2025–26');  // Samuel's pooled grade and its seasons
+    expect(el.textContent).toContain('not enough snaps yet');
     fixture.componentInstance.how.set('draft');
     fixture.detectChanges();
     expect(names()).toEqual(['Antonio Williams']);

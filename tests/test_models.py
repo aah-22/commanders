@@ -156,7 +156,7 @@ def test_score_writes_projections_values_and_targets(env):
 
     counts = score.main([])
     assert counts["production-next"] == sum(GROUPS.values()) * 4  # every 2026 player is qualified
-    assert counts["acquisition-value"] == sum(GROUPS.values()) * 4
+    assert counts["acquisition-value"] == sum(GROUPS.values()) * 4 * 3  # 2024, 2025 and 2026
     assert counts["target-rank"] > 0
     with env.connect() as c:
         t = schema.model_outputs

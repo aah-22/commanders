@@ -29,6 +29,7 @@ log = logging.getLogger("models.score")
 LOSING = 0.35
 AGE_DISCOUNT = 0.7
 FORMULA_VERSION = "formula-1"
+VALUE_SEASONS_BACK = 2  # the report cards cover this season and the two before it
 
 
 def write(conn: Connection, model: str, season: int, rows: list[dict]) -> int:
@@ -163,9 +164,11 @@ def main(argv: list[str] | None = None) -> dict:
                 nxt, lin = score_production_next(tr, frame, season)
                 lineage["production-next"] = lin
                 counts["production-next"] = write(conn, "production-next", season, nxt)
-                val, lin = score_acquisition_value(tr, frame, season)
-                lineage["acquisition-value"] = lin
-                counts["acquisition-value"] = write(conn, "acquisition-value", season, val)
+                counts["acquisition-value"] = 0
+                for s in range(season - VALUE_SEASONS_BACK, season + 1):
+                    val, lin = score_acquisition_value(tr, frame, s)
+                    lineage["acquisition-value"] = lin or lineage.get("acquisition-value", {})
+                    counts["acquisition-value"] += write(conn, "acquisition-value", s, val)
                 projections = {r["gsis_id"]: r["value"] for r in nxt}
                 targets = score_targets(conn, frame, season, team, projections, run_id)
                 counts["target-rank"] = write(conn, "target-rank", season, targets)

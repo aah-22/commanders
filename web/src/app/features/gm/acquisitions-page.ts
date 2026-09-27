@@ -6,7 +6,7 @@ import { fmtMoney, fmtNum, fmtPct, fmtPctile, fmtSignedPct } from '../../core/fo
 import { GradeChip } from './grade-chip';
 import { ValueScatterChart } from './value-scatter-chart';
 
-type SortKey = 'name' | 'how' | 'apy' | 'production_pct' | 'value_gap' | 'age' | 'arrival_season';
+type SortKey = 'name' | 'how' | 'apy' | 'tenure_pct' | 'value_gap' | 'age' | 'arrival_season';
 
 const METRIC_LABEL: Record<string, string> = {
   epa_per_play: 'EPA / play',
@@ -34,18 +34,19 @@ const METRIC_LABEL: Record<string, string> = {
       <div class="panel"><p>No arrivals on record for {{ a.since }}–{{ a.season }} yet. The nightly job fills this in from contracts, the draft and trades.</p></div>
     } @else {
       <p class="muted">
-        Every {{ a.team }} arrival in {{ a.since }}–{{ a.season }}: {{ a.cards.length }} players ({{ counts() }}). Production is the
-        {{ a.season }} percentile at the position among qualified players; the grade is production minus what the money
-        usually buys ({{ modelShare() }} graded by the acquisition-value model, the rest against the APY percentile until it scores).
+        Every {{ a.team }} arrival in {{ a.since }}–{{ a.season }}: {{ a.cards.length }} players ({{ counts() }}). The grade is his
+        production percentile at the position minus what the money
+        usually buys, pooled over every qualified season on the team since he arrived ({{ modelShare() }} graded by the acquisition-value model, the rest against the APY percentile).
       </p>
       <div class="grid cols-2 top">
         <app-value-scatter-chart [cards]="a.cards" />
         <div class="panel">
           <h2>How to read a card</h2>
           <ul class="muted small">
-            <li><b>Production</b>: the headline metric for the position group (EPA per target for receivers, pressures per snap for rushers, passer rating allowed for coverage, snap share for linemen) and its percentile, with the sample behind it.</li>
+            <li><b>Production</b>: this season's headline metric for the position group (EPA per target for receivers, pressures per snap for rushers, passer rating allowed for coverage, snap share for linemen) with the games behind it.</li>
+            <li><b>Graded on</b>: the production percentile at his position over every season he has spent here since arriving and cleared the position's sample floor, weighted by snaps, with the seasons it covers.</li>
             <li><b>Expected</b>: the percentile the model expects for that contract, age and pedigree; before the model has scored a season it is the APY percentile itself.</li>
-            <li><b>Grade</b>: A ≥ +20 points over expected, B ≥ +8, C within ±8, D ≥ −20, F below. No grade until the sample clears the position's floor.</li>
+            <li><b>Grade</b>: A ≥ +20 points over expected, B ≥ +8, C within ±8, D ≥ −20, F below. No grade until at least one season on the team clears the position's floor.</li>
           </ul>
         </div>
       </div>
@@ -76,7 +77,7 @@ const METRIC_LABEL: Record<string, string> = {
                 <th (click)="sortBy('apy')" [class.on]="sort() === 'apy'">APY</th>
                 <th>Deal</th>
                 <th>Production</th>
-                <th (click)="sortBy('production_pct')" [class.on]="sort() === 'production_pct'">Pctile</th>
+                <th (click)="sortBy('tenure_pct')" [class.on]="sort() === 'tenure_pct'" title="Snap-weighted over every qualified season on the team since arriving">Graded on</th>
                 <th>Expected</th>
                 <th (click)="sortBy('value_gap')" [class.on]="sort() === 'value_gap'">Gap</th>
                 <th>Grade</th>
@@ -96,8 +97,14 @@ const METRIC_LABEL: Record<string, string> = {
                       {{ metricValue(c) }} <span class="muted">{{ metricLabel(c.metric) }}, {{ c.games ?? 0 }} gm</span>
                     } @else { <span class="muted">–</span> }
                   </td>
-                  <td>{{ c.qualified ? pctile(c.production_pct) : '–' }}@if (!c.qualified) { <span class="muted small">n/q</span> }</td>
-                  <td>{{ pctile(c.expected_pct) }} <span class="muted small">{{ c.basis === 'model' ? 'model' : 'cost' }}</span></td>
+                  <td>
+                    @if (c.tenure_pct !== null) {
+                      {{ pctile(c.tenure_pct) }}<span class="muted small">{{ seasonSpan(c.graded_seasons) }}</span>
+                    } @else {
+                      <span class="muted small">not enough snaps yet</span>
+                    }
+                  </td>
+                  <td>{{ pctile(c.expected_pct) }} <span class="muted small">{{ c.basis }}</span></td>
                   <td [class.pos]="(c.value_gap ?? 0) > 0.08" [class.neg]="(c.value_gap ?? 0) < -0.08">{{ spct(c.value_gap) }}</td>
                   <td><app-grade-chip [grade]="c.grade" [title]="c.run_id ? 'MLflow run ' + c.run_id : 'graded against cost'" /></td>
                 </tr>
@@ -123,7 +130,7 @@ const METRIC_LABEL: Record<string, string> = {
     th { color: var(--muted); font-weight: 500; font-size: 0.8rem; cursor: pointer; user-select: none; }
     th.on { color: var(--gold); }
     th:nth-child(-n + 3), td:nth-child(-n + 3), th:nth-child(6), td:nth-child(6), th:nth-child(7), td:nth-child(7) { text-align: left; }
-    td b + .muted, td .muted + .muted, td:nth-child(2) .muted { margin-left: 0.35rem; }
+    td b + .muted, td .muted + .muted, td:nth-child(2) .muted, td:nth-child(8) .muted { margin-left: 0.35rem; }
     td.pos { color: var(--good); }
     td.neg { color: var(--bad); }
   `,
@@ -178,6 +185,13 @@ export class AcquisitionsPage {
 
   value(e: Event): string {
     return (e.target as HTMLSelectElement).value;
+  }
+
+  /** " · 2025–26" for a pooled grade, " · 2026" for one season. */
+  seasonSpan(ss: number[]): string {
+    if (!ss.length) return '';
+    const short = (y: number) => `${y}`.slice(2);
+    return ss.length === 1 ? ` · ${ss[0]}` : ` · ${ss[0]}–${short(ss[ss.length - 1])}`;
   }
 
   metricLabel(m: string): string {

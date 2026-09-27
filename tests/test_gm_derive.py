@@ -153,3 +153,44 @@ def test_production_builds_when_a_source_has_no_rows_for_the_season():
         2016,
     )
     assert bare.is_empty()
+
+
+def test_a_player_drafted_with_a_traded_pick_is_a_draft_arrival():
+    """nflverse puts the drafted player's id on the traded pick's row (Sainristil, Sinnott, Hampton in 2024)."""
+    pick_trade = pl.DataFrame(
+        [
+            {
+                "trade_id": 9,
+                "seq": 0,
+                "season": 2026,
+                "trade_date": "2026-04-24",
+                "gave": "PHI",
+                "received": "WAS",
+                "pick_round": 3.0,
+                "pfr_name": "Antonio Williams",
+                "gsis_id": "00-W3",
+            },
+            {
+                "trade_id": 9,
+                "seq": 1,
+                "season": 2026,
+                "trade_date": "2026-04-24",
+                "gave": "PHI",
+                "received": "WAS",
+                "pick_round": 5.0,
+                "pfr_name": "Someone Else",
+                "gsis_id": "00-X9",
+            },
+        ]
+    )
+    out = acquisitions.build(
+        seed_gm.draft_picks_frame(),
+        pick_trade,
+        seed_gm.contracts_frame(),
+        seed_gm.rosters_frame().filter(pl.col("season") == 2025),
+        pl.DataFrame(schema={"gsis_id": pl.Utf8, "name": pl.Utf8, "position": pl.Utf8, "pos_group": pl.Utf8}),
+        2026,
+        "WAS",
+    )
+    by = {r["gsis_id"]: r["how"] for r in out.iter_rows(named=True)}
+    assert by["00-W3"] == "draft" and "00-X9" not in by  # a pick row is never a player trade

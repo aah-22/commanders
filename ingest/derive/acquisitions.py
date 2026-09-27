@@ -64,7 +64,12 @@ def build(
         )
     traded = trades.filter(
         (pl.col("received") == team) & (pl.col("season") == season) & pl.col("gsis_id").is_not_null()
-    ).unique(subset=["gsis_id"], keep="first")
+    )
+    # nflverse names the player later drafted with a traded pick on the pick's row; that player is a draft arrival
+    if "pick_round" in traded.columns:
+        traded = traded.filter(pl.col("pick_round").is_null())
+    drafted_ids = set(drafted["gsis_id"].to_list())
+    traded = traded.filter(~pl.col("gsis_id").is_in(list(drafted_ids))).unique(subset=["gsis_id"], keep="first")
     for r in traded.iter_rows(named=True):
         rows.append(
             {
