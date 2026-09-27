@@ -26,7 +26,9 @@ Read `docs/commanders-build-guide.md` first; it is the source of truth for archi
 - `web/` Angular 20 (standalone components, signals, lazy routes, ngx-echarts on `echarts/core`), served by
   nginx-unprivileged which proxies `/api/` to the API so the site is same-origin. Palette: gold `#c9a233` on `#0a0a0a`.
   ECharts is registered once in `core/echarts-setup.ts` (app config and specs both call `registerEcharts()`); every
-  chart has a "Table view" twin; the season page's fixtures live in `features/season/testing/`.
+  chart has a "Table view" twin; fixtures live in `features/<page>/testing/`. The explorer (`features/explorer/`,
+  `/explorer/:gameId`) keeps its play filters in the URL query string; drives and win probability are folded from the
+  plays server-side in `api/queries/game.py` (drive points come from the score progression and sum to the final).
 - MLflow lives at https://mlflow.caabi.dev behind Cloudflare Access (`api/mlflow_auth.py`, same as draft-engine);
   on the Droplet use the internal `http://<ip>:5000` route with the CF vars empty.
 - Infra conventions (from draft-engine / Anchor): Coolify Compose resource `commanders`, Coolify strips `ports:`,

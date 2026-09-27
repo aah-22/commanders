@@ -1,10 +1,12 @@
 import { Component, input } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { GameRow } from '../../core/api.service';
 import { fmtEpa, fmtPct, fmtSignedPct } from '../../core/format';
 
 /** The schedule with each played game's headline numbers; unplayed rows show the kickoff and the next game is marked. */
 @Component({
   selector: 'app-game-results-table',
+  imports: [RouterLink],
   template: `
     <div class="panel">
       <h2>Games</h2>
@@ -19,7 +21,13 @@ import { fmtEpa, fmtPct, fmtSignedPct } from '../../core/format';
                 <tr [class.next]="g.game_id === nextGameId()">
                   <td>{{ g.week }}</td>
                   <td>{{ g.gameday ?? '' }}</td>
-                  <td>{{ g.is_home ? 'vs' : '@' }} {{ g.opponent }}</td>
+                  <td>
+                    @if (g.result) {
+                      <a [routerLink]="['/explorer', g.game_id]" title="Drives and plays">{{ g.is_home ? 'vs' : '@' }} {{ g.opponent }}</a>
+                    } @else {
+                      {{ g.is_home ? 'vs' : '@' }} {{ g.opponent }}
+                    }
+                  </td>
                   <td>
                     @if (g.result) {
                       {{ g.result }} {{ g.points_for }}–{{ g.points_against }}

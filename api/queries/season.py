@@ -127,13 +127,17 @@ def next_game(all_games: list[dict], team: str) -> dict | None:
     return None
 
 
-def down_distance(conn: Connection, season: int, team: str) -> list[dict]:
-    """Success rate by down × distance bucket, team vs league, over clean scrimmage plays on downs 1–3."""
+def down_distance(conn: Connection, season: int, team: str, game_id: str | None = None) -> list[dict]:
+    """Success rate by down × distance bucket, team vs league, over clean scrimmage plays on downs 1–3. The league
+    side is always the season to date; `game_id` narrows the team side to one game (the explorer's view)."""
     bucket = case(
         *[(P.c.ydstogo.between(lo, hi), name) for name, lo, hi in DISTANCE_BUCKETS],
         else_=None,
     ).label("bucket")
-    is_team = case((P.c.posteam == team, 1), else_=0)
+    team_side = P.c.posteam == team
+    if game_id:
+        team_side = and_(team_side, P.c.game_id == game_id)
+    is_team = case((team_side, 1), else_=0)
     stmt = (
         select(
             P.c.down,

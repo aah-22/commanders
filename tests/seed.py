@@ -122,8 +122,37 @@ def _generic(game_id: str, week: int, posteam: str, defteam: str, base: int, sca
     return _rows(game_id, week, posteam, defteam, plays)
 
 
+def _clock(rows: list[dict], home: str) -> list[dict]:
+    """Game order (fixed_drive, play_id), a quarter and clock per play, a description, and the running score the way
+    nflverse carries it (the score *before* the play): a 'Touchdown' drive adds 7 for its offense once it ends, and
+    the last drive's scoring lands on the final score. WAS drive 3 is the only touchdown in the hand-built game
+    (27–20 final, so the remaining points are notional and land after the last play)."""
+    rows = sorted(rows, key=lambda r: (r["fixed_drive"], r["play_id"]))
+    hs = as_ = 0
+    prev_drive = None
+    for i, r in enumerate(rows):
+        if prev_drive is not None and r["fixed_drive"] != prev_drive:
+            last = next(p for p in reversed(rows[:i]) if p["fixed_drive"] == prev_drive)
+            if last["fixed_drive_result"] == "Touchdown":
+                if last["posteam"] == home:
+                    hs += 7
+                else:
+                    as_ += 7
+        prev_drive = r["fixed_drive"]
+        r.update(
+            qtr=1 + min(i // 5, 3),
+            game_seconds_remaining=3600 - 200 * i,
+            desc=f"({r['play_type']}) play {r['play_id']}",
+            total_home_score=hs,
+            total_away_score=as_,
+            posteam_score=hs if r["posteam"] == home else as_,
+            defteam_score=as_ if r["posteam"] == home else hs,
+        )
+    return rows
+
+
 def plays_frame() -> pl.DataFrame:
-    rows = _rows(G1, 1, "WAS", "NYG", WAS_G1_PLAYS) + _rows(G1, 1, "NYG", "WAS", NYG_G1_PLAYS)
+    rows = _clock(_rows(G1, 1, "WAS", "NYG", WAS_G1_PLAYS) + _rows(G1, 1, "NYG", "WAS", NYG_G1_PLAYS), "WAS")
     scale = {"WAS": 1.0, "PHI": 1.6, "DAL": 1.3, "NYG": 0.4, "KC": 1.9, "BUF": 0.7}
     for gid, week, away, home, _, _, _ in GAMES[1:5]:
         rows += _generic(gid, week, home, away, 100, scale[home]) + _generic(gid, week, away, home, 200, scale[away])

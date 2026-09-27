@@ -49,7 +49,8 @@ nflverse (nflreadpy)                           Coolify Compose resource `command
    DoD: every team-game's nflverse-convention passing/rushing EPA matches `nfl.team_game_stats` within 0.01
    (`tests/test_derive.py`, and `REAL_PBP_DB=… pytest tests/test_derive.py` against a real ingest); warm
    `/summary` under 50 ms; the page renders 2026 through the latest complete week with league ranks.
-3. **Drive & play explorer** — `/api/games/*`, the explorer page with filters. DoD: any 2026 WAS game browsable.
+3. **Drive & play explorer** — `/api/v1/games/*`, the explorer page with filters. DoD: any 2026 WAS game browsable.
+   Built: drive points reconcile to the final score on every 2026 game (checked on 2026_01_WAS_PHI: 24 drives, 22–24).
 4. **GM views + models** — contracts/draft/rosters, `acquisitions`, `positional_need`, three MLflow models with
    promotion gate, report cards + target board pages. DoD: every 2025–26 arrival has a card; targets list has cost,
    age, projection and the run_id behind it.
@@ -139,8 +140,15 @@ complete week, league weekly EPA quartiles, next game, down × distance success 
 (every team's aggregate), `/api/v1/season/{season}/games?team=` (the schedule with each played game's summary).
 `team` must be an upper-case 2–3 letter abbreviation (422 otherwise); an unknown season is 404. Queries are Core
 selects in `api/queries/season.py` with the ≤ 32 × 18-row aggregations in Python, so SQLite and Postgres behave alike.
-Planned: `/api/games/{game_id}/drives` ·
-`/api/games/{game_id}/plays?down=&distance=&personnel=&rz=` · `/api/players/{id}` · `/api/players/{id}/games` ·
+Built (phase 3): `/api/v1/games/{game_id}?team=` (header, `played`, the focus team's previous / next played game, drives
+folded from the plays in Python with pass + run counts, yards, EPA, `fixed_drive_result` and points from the score
+progression — the score at the next drive's first play, or the final score for the last drive, minus the score at this
+drive's first play, so the drive points always sum to the final; the home team's win-probability trace closed with the
+result; the focus team's down × distance cells for this game against the league season rate) and
+`/api/v1/games/{game_id}/plays?posteam=&down=&distance=&rz=&drive=&type=` (`type` ∈ all / scrimmage / pass / run /
+special; game order). The focus team is the configured one when it played, else the home team, so every game is
+browsable. A malformed id is 422, an unknown one 404. Queries in `api/queries/game.py`.
+Planned: `/api/players/{id}` · `/api/players/{id}/games` ·
 `/api/gm/acquisitions?season=` · `/api/gm/need` · `/api/gm/targets?position=` · `/api/models` (versions, metrics, run
 links) · `/health`.
 
@@ -152,7 +160,13 @@ week over the league median and inter-quartile band with bye weeks as gaps, `Lea
 EPA with WAS highlighted and median lines, `DownDistanceHeatmap` success-rate gap to the league with thin cells
 dimmed, `GameResultsTable`; every chart has a table twin under "Table view"; ECharts registered once in
 `core/echarts-setup.ts` for the app and the specs; fixtures in `features/season/testing/`),
-`/games/:id` Drive & play explorer (drive chart, EPA by down/distance heatmap, personnel/formation filters, play table),
+`/explorer/:gameId` Drive & play explorer (built: `features/explorer/` — `GameHeader` score line with prev / next
+arrows, `WinProbChart` home win probability on elapsed time with quarter gridlines, `DriveChart` EPA per drive in gold
+for the focus team labelled with the result and click-to-filter, the season `DownDistanceHeatmap` reused with a
+game caption, `PlayFiltersBar` whose state lives in the URL query string so a filtered view is a link, `PlayTable` with
+clock, down & distance, ball spot, description chips for TD / INT / FUM / sack / flag / 1st, EPA coloured beyond ±0.5;
+`/explorer` alone lists the team's played games; the season game table links each played row through;
+`core/format.ts` gained `clock`, `yardline`, `downDistance`),
 `/players/:id` Player page (game log, percentiles, contract), `/gm/acquisitions` report cards (production vs cost,
 sortable), `/gm/targets` target board (need index by position, ranked targets with cost/age/production), `/about`
 (data lineage, model versions from `/api/models`). Palette: `#c9a233` on `#0a0a0a`, panels `#111111`.
