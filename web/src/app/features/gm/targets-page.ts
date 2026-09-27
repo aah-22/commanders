@@ -6,7 +6,7 @@ import { ApiService, Need, Targets } from '../../core/api.service';
 import { fmtMoney, fmtNum, fmtPctile } from '../../core/format';
 import { NeedChart } from './need-chart';
 
-const GROUPS = ['QB', 'RB', 'WR', 'TE', 'OL', 'IDL', 'ED', 'LB', 'CB', 'S', 'ST'];
+const GROUPS = ['QB', 'RB', 'WR', 'TE', 'OL', 'IDL', 'ED', 'LB', 'CB', 'S'];
 
 /** Need by position group, then the target board: pending free agents and productive players on losing teams. */
 @Component({
@@ -85,6 +85,7 @@ const GROUPS = ['QB', 'RB', 'WR', 'TE', 'OL', 'IDL', 'ED', 'LB', 'CB', 'S', 'ST'
     th, td { text-align: right; padding: 0.35rem 0.5rem; border-bottom: 1px solid var(--line); }
     th { color: var(--muted); font-weight: 500; font-size: 0.8rem; }
     th:nth-child(-n + 4), td:nth-child(-n + 4) { text-align: left; }
+    td b + .muted { margin-left: 0.35rem; }
     td.score { color: var(--gold); font-weight: 600; }
   `,
 })

@@ -123,6 +123,7 @@ const METRIC_LABEL: Record<string, string> = {
     th { color: var(--muted); font-weight: 500; font-size: 0.8rem; cursor: pointer; user-select: none; }
     th.on { color: var(--gold); }
     th:nth-child(-n + 3), td:nth-child(-n + 3), th:nth-child(6), td:nth-child(6), th:nth-child(7), td:nth-child(7) { text-align: left; }
+    td b + .muted, td .muted + .muted, td:nth-child(2) .muted { margin-left: 0.35rem; }
     td.pos { color: var(--good); }
     td.neg { color: var(--bad); }
   `,

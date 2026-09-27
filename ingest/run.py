@@ -206,7 +206,10 @@ class Ingest:
         counts = derive.run_season(self.conn, season)
         for table, n in counts.items():
             self.rows[f"{table}_{season}"] = n
-        self.tr.dataset(f"derive-{season}", "derived:gm.team_game_summary,gm.standings", pd.DataFrame([counts]))
+        # MLflow only accepts sources it can resolve (a URL or a path); the API is where the derived tables are read
+        self.tr.dataset(
+            f"derive-{season}", f"https://commanders.caabi.dev/api/v1/season/{season}/summary", pd.DataFrame([counts])
+        )
 
 
 def parse_seasons(spec: str) -> list[int]:

@@ -31,7 +31,7 @@ async def acquisitions(
 ) -> Acquisitions:
     s = get_settings()
     season = _season(season or s.season)
-    since = since or season - 1
+    since = since or season - 2  # this season and the two before it
     with db.engine().connect() as conn:
         return Acquisitions(season=season, team=s.team, since=since, cards=q.acquisitions(conn, season, s.team, since))
 

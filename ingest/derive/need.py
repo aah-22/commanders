@@ -25,7 +25,7 @@ def build(production: pl.DataFrame, season: int, team: str) -> pl.DataFrame:
     if mine.is_empty():
         return pl.DataFrame()
     rows = []
-    for g in pos.GROUPS:
+    for g in pos.NEED_GROUPS:
         grp = mine.filter(pl.col("pos_group") == g).sort("snap_share", descending=True, nulls_last=True)
         if grp.is_empty():
             continue

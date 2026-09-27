@@ -74,10 +74,10 @@ def test_need_score_adds_starters_expiring_and_age(db):
         need["WR"]["starters_aging"],
         need["WR"]["depth"],
     ) == (3, 1, 2, 3)
-    assert need["QB"]["need_score"] == 0.0 and need["QB"]["need_rank"] >= 6  # QB, CB and IDL all sit at zero
+    assert need["QB"]["need_score"] == 0.0 and need["QB"]["need_rank"] >= 5  # QB, CB and IDL all sit at zero
     assert need["LB"]["need_score"] == 50.0  # Wagner: best (only) LB, but expiring and 36
     assert need["OL"]["need_score"] == 25.0  # Tunsil: 32.1, past the OL mark
-    assert need["ST"]["need_score"] == 25.0  # Gay: expiring
+    assert "ST" not in need  # kickers and punters have no need score: snap share says nothing about them
     assert (
         need["WR"]["need_rank"] == 2
         and need["LB"]["need_rank"] == 1
