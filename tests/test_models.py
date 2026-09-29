@@ -164,12 +164,18 @@ def test_score_writes_projections_values_and_targets(env):
         assert all(0 <= r["value"] <= 1 for r in proj) and proj[0]["version"] == "1" and proj[0]["run_id"]
         tr = c.execute(select(t).where(t.c.model == "target-rank")).mappings().all()
         teams = {r["detail"]["reason"] for r in tr}
-        assert teams <= {"pending free agent", "losing team"}
+        assert teams <= {"pending free agent", "pending free agent, losing team"}
         assert all(r["detail"]["pos_group"] != "CB" or r["value"] == 0 for r in tr)  # need 0 → score 0
         assert not any(r["gsis_id"].startswith("00-WAS") for r in tr)
-        # a WAS player is never a target; a NYG (0-3) player always qualifies as "losing team"
-        nyg = [r for r in tr if r["detail"]["reason"] == "losing team"]
-        assert nyg and all(r["version"] == "formula-1" for r in tr)
+        # only expiring deals (synthetic years_left 0), and an expiring NYG (0-3) player carries the losing-team flag
+        by_id = {r["gsis_id"]: r for r in tr}
+        with env.connect() as c2:
+            left = dict(
+                c2.execute(text("SELECT gsis_id, years_left FROM player_season_production WHERE season=2026")).all()
+            )
+        assert by_id and all(left[g] == 0 for g in by_id)
+        assert any(r["detail"]["reason"].endswith("losing team") for r in tr)
+        assert all(r["version"] == "formula-1" for r in tr)
     # scoring again replaces rather than duplicates
     assert score.main([]) == counts
 

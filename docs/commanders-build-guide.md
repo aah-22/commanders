@@ -156,8 +156,10 @@ Built (phase 4), with the simplifications that made it shippable from the data n
   the latest target season held out, refit on everything, logged with `skops` trusted types and registered; promoted
   to `champion` only when validation MAE beats both the current champion's and the naive baseline's (this season's
   percentile for the projection, the cost percentile for value). `target-rank` is a tracked formula, not a learned
-  model: need/100 × projected percentile × 0.7 past the aging mark, over players not on the team who are pending free
-  agents (contract ends this season) or productive on a team at ≤ .350. `models.score` writes `ml.model_outputs`
+  model: need/100 × projected percentile × 0.7 past the aging mark, over players not on the team whose contract ends this
+  season (years left counts to the later of signed + years − 1 and the deal's last season with a base salary over $2M, so
+  exercised fifth-year options count and void years do not). Players on longer deals are never targets: there is no public
+  trade-request data. A pending free agent on a team at ≤ .350 is flagged in `reason`. `models.score` writes `ml.model_outputs`
   (delete-then-insert per model and season; model rows carry the champion's run id, formula rows the score run's);
   `models.evaluate` re-scores the latest completed season pair out of sample. All three jobs run without MLflow
   (`--no-mlflow` or an unreachable server) and record a `pipeline_runs` row.
