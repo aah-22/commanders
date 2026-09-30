@@ -91,14 +91,15 @@ def test_targets_are_computed_live_until_the_score_job_runs(client):
     t = {x["gsis_id"]: x for x in j["targets"]}
     # Brown: pending FA (2024 + 3 − 1 = 2026), WR need 46.9, pct 1.0, 29.2 → score .469
     assert t["00-W4"]["reason"] == "pending free agent" and t["00-W4"]["score"] == pytest.approx(0.469)
-    # Nabers: NYG are 0-2 → losing team; pct .375 → .176; Hurts: PHI 1-0-1 and a year left → not a target
-    assert t["00-W5"]["reason"] == "losing team" and t["00-W5"]["score"] == pytest.approx(0.469 * 0.375)
+    # Nabers: NYG are 0-2 but he is signed through 2027 → not a target, however bad his team; Hurts: a year left too
+    assert "00-W5" not in t
     assert "00-Q2" not in t and not any(x["team"] == "WAS" for x in j["targets"])
     assert (
         j["targets"][0]["gsis_id"] == "00-W4" and t["00-W4"]["version"] == "formula-1" and t["00-W4"]["run_id"] is None
     )
     only = c.get("/v1/gm/targets?position=CB").json()["targets"]
-    assert [x["gsis_id"] for x in only] == ["00-C2"]  # Banks: NYG, losing team, but CB need is 0 → score 0
+    assert [x["gsis_id"] for x in only] == ["00-C2"]  # Banks: expiring, on 0-2 NYG, but CB need is 0 → score 0
+    assert only[0]["reason"] == "pending free agent, losing team"
     assert only[0]["score"] == 0
     assert c.get("/v1/gm/targets?position=XX").status_code == 422
 

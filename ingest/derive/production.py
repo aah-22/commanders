@@ -145,8 +145,14 @@ def _roster(rosters: pl.DataFrame) -> pl.DataFrame:
     )
 
 
-def _contract(contracts: pl.DataFrame, season: int) -> pl.DataFrame:
-    """One active contract per player (the most recently signed)."""
+# a later season on the deal with a real salary (an exercised fifth-year option, an extension year) keeps the player
+# under contract; void years carry minimum-salary placeholders and do not
+REAL_SALARY = 2.0  # $M
+
+
+def _contract(contracts: pl.DataFrame, season: int, contract_seasons: pl.DataFrame | None = None) -> pl.DataFrame:
+    """One active contract per player (the most recently signed). `years_left` counts to the later of the deal's
+    nominal end (signed + years - 1) and its last season with a real salary in `contract_seasons`."""
     if contracts.is_empty():
         return pl.DataFrame(
             schema={
@@ -161,14 +167,28 @@ def _contract(contracts: pl.DataFrame, season: int) -> pl.DataFrame:
         )
     df = contracts.filter(pl.col("gsis_id").is_not_null() & pl.col("is_active").fill_null(False))
     df = df.sort(["gsis_id", "year_signed"]).unique(subset=["gsis_id"], keep="last")
-    return df.select(
+    out = df.select(
         "gsis_id",
         contract_position=pl.col("position"),
         apy=pl.col("apy"),
         contract_years=pl.col("years").cast(pl.Int64, strict=False),
         year_signed=pl.col("year_signed").cast(pl.Int64, strict=False),
         guaranteed=pl.col("guaranteed"),
-    ).with_columns(years_left=(pl.col("year_signed") + pl.col("contract_years") - 1 - season).cast(pl.Int64))
+        otc_id=pl.col("otc_id") if "otc_id" in df.columns else pl.lit(None, dtype=pl.Utf8),
+    )
+    through = pl.col("year_signed") + pl.col("contract_years") - 1
+    if contract_seasons is not None and not contract_seasons.is_empty():
+        paid = (
+            contract_seasons.filter(pl.col("base_salary").fill_null(0) > REAL_SALARY)
+            .group_by(["otc_id", "year_signed"])
+            .agg(paid_through=pl.col("season").max().cast(pl.Int64))
+            .with_columns(pl.col("year_signed").cast(pl.Int64))
+        )
+        out = out.join(paid, on=["otc_id", "year_signed"], how="left")
+        through = pl.max_horizontal(through, pl.col("paid_through"))
+    return out.with_columns(years_left=(through - season).cast(pl.Int64)).select(
+        "gsis_id", "contract_position", "apy", "contract_years", "year_signed", "guaranteed", "years_left"
+    )
 
 
 def _age(birth: pl.Expr, season: int) -> pl.Expr:
@@ -194,8 +214,10 @@ def build(
     players: pl.DataFrame,
     contracts: pl.DataFrame,
     season: int,
+    contract_seasons: pl.DataFrame | None = None,
 ) -> pl.DataFrame:
-    stats, sn, pf, ro, ct = _stats(pgs), _snaps(snaps), _pfr(pfr), _roster(rosters), _contract(contracts, season)
+    stats, sn, pf, ro = _stats(pgs), _snaps(snaps), _pfr(pfr), _roster(rosters)
+    ct = _contract(contracts, season, contract_seasons)
     ids = pl.concat([d.select("gsis_id") for d in (stats, sn, ro)]).unique()
     if ids.is_empty():
         return pl.DataFrame()
@@ -289,7 +311,9 @@ def run_season(conn: Connection, season: int) -> int:
     rosters = frame(conn, select(s.rosters_weekly).where(s.rosters_weekly.c.season == season), s.rosters_weekly)
     players = frame(conn, select(s.players), s.players)
     contracts = frame(conn, select(s.contracts), s.contracts)
-    out = build(pgs, snaps, pfr, rosters, players, contracts, season)
+    cs = s.contract_seasons
+    future = frame(conn, select(cs).where(cs.c.season > season, cs.c.base_salary > REAL_SALARY), cs)
+    out = build(pgs, snaps, pfr, rosters, players, contracts, season, future)
     t = s.player_season_production
     conn.execute(t.delete().where(t.c.season == season))
     return upsert(conn, t, out, KEY)

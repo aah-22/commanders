@@ -5,8 +5,9 @@
 `production-next`: projected next-season production percentile for every qualified player.
 `acquisition-value`: the percentile a player's contract usually buys; the gap to his actual percentile is the grade.
 `target-rank`: not a learned model but a tracked formula — for every player not on the team who is a pending free
-agent (contract ends this season) or productive on a losing team (win % ≤ .350), need score × projected percentile ×
-an age discount; its rows carry this scoring run's id, the model rows carry their champion's run id."""
+agent (his deal, counting exercised options, ends this season), need score × projected percentile × an age discount.
+Players under contract beyond this season are never targets: nothing public says who has requested a trade. A pending
+free agent on a team at .350 or worse is flagged as such; its rows carry this scoring run's id, the model rows carry their champion's run id."""
 
 from __future__ import annotations
 
@@ -125,10 +126,12 @@ def score_targets(
     for r in cur.itertuples(index=False):
         if r.pos_group not in need:
             continue
+        # only players who can actually be had: their deal ends this season. Nothing public says who has asked for a
+        # trade, so a player under contract beyond this season is not a target however bad his team is.
         pending = r.years_left is not None and not pd.isna(r.years_left) and r.years_left <= 0
-        losing_team = r.team in losing
-        if not (pending or losing_team):
+        if not pending:
             continue
+        losing_team = r.team in losing
         proj = projections.get(r.gsis_id, float(r.production_pct))
         young = pd.isna(r.age) or r.age < pos.AGING.get(r.pos_group, 99)
         score = need[r.pos_group] / 100 * proj * (1.0 if young else AGE_DISCOUNT)
@@ -136,7 +139,7 @@ def score_targets(
         values.append(score)
         details.append(
             {
-                "reason": "pending free agent" if pending else "losing team",
+                "reason": "pending free agent, losing team" if losing_team else "pending free agent",
                 "projected_pct": float(proj),
                 "need_score": float(need[r.pos_group]),
                 "apy": None if pd.isna(r.apy) else float(r.apy),

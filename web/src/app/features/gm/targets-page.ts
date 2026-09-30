@@ -8,7 +8,7 @@ import { NeedChart } from './need-chart';
 
 const GROUPS = ['QB', 'RB', 'WR', 'TE', 'OL', 'IDL', 'ED', 'LB', 'CB', 'S'];
 
-/** Need by position group, then the target board: pending free agents and productive players on losing teams. */
+/** Need by position group, then the target board: players on other teams whose contracts end this season. */
 @Component({
   selector: 'app-targets-page',
   imports: [NeedChart],
@@ -36,7 +36,7 @@ const GROUPS = ['QB', 'RB', 'WR', 'TE', 'OL', 'IDL', 'ED', 'LB', 'CB', 'S'];
         @if (t?.live) { <span class="chip" title="The nightly score job has not run for this season; the same formula was applied on request.">live</span> }
       </div>
       <p class="muted small">
-        Who to go get: players not on {{ t?.team ?? 'the team' }} whose contract ends this season, or who are producing on a team at .350 or worse.
+        Who to go get: players not on {{ t?.team ?? 'the team' }} whose contract ends this season (exercised options and extension years count as under contract), so they can be signed next spring or had cheaply at the deadline. Players on longer deals are left out; nothing public says who has asked for a trade.
         Score = need at the position × projected production percentile (the production-next model where it has scored, else this season's) × 0.7 past the position's peak age.
       </p>
       @if (t === undefined) {

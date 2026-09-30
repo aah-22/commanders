@@ -122,8 +122,8 @@ export const TARGETS: Targets = {
   scored_at: '2026-09-27 10:30:00+00:00',
   targets: [
     target({ gsis_id: '00-W4', name: 'A.J. Brown', team: 'PHI', pos_group: 'WR', score: 0.469, production_pct: 1, apy: 32 }),
-    target({ gsis_id: '00-W5', name: 'Malik Nabers', team: 'NYG', pos_group: 'WR', score: 0.176, production_pct: 0.375, projected_pct: 0.4, reason: 'losing team', years_left: 1, apy: 7.3 }),
-    target({ gsis_id: '00-L2', name: 'Some Backer', team: 'NYG', pos_group: 'LB', score: 0.3, production_pct: 0.6, reason: 'losing team', need_score: 50 }),
+    target({ gsis_id: '00-W5', name: 'Malik Nabers', team: 'NYG', pos_group: 'WR', score: 0.176, production_pct: 0.375, projected_pct: 0.4, reason: 'pending free agent, losing team', years_left: 0, apy: 7.3 }),
+    target({ gsis_id: '00-L2', name: 'Some Backer', team: 'NYG', pos_group: 'LB', score: 0.3, production_pct: 0.6, reason: 'pending free agent, losing team', need_score: 50 }),
   ],
 };
 

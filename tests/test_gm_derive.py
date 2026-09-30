@@ -194,3 +194,65 @@ def test_a_player_drafted_with_a_traded_pick_is_a_draft_arrival():
     )
     by = {r["gsis_id"]: r["how"] for r in out.iter_rows(named=True)}
     assert by["00-W3"] == "draft" and "00-X9" not in by  # a pick row is never a player trade
+
+
+def test_an_exercised_option_keeps_a_player_under_contract_and_void_years_do_not():
+    """C.J. Stroud's 2023 rookie deal runs 4 years, but his 2027 option pays $25.9M; void years pay minimum placeholders."""
+    from ingest.derive import production
+
+    contracts = pl.DataFrame(
+        [
+            {
+                "otc_id": "a",
+                "gsis_id": "00-A",
+                "year_signed": 2023,
+                "years": 4,
+                "is_active": True,
+                "position": "QB",
+                "apy": 9.0,
+                "guaranteed": 1.0,
+            },
+            {
+                "otc_id": "b",
+                "gsis_id": "00-B",
+                "year_signed": 2024,
+                "years": 3,
+                "is_active": True,
+                "position": "QB",
+                "apy": 30.0,
+                "guaranteed": 1.0,
+            },
+            {
+                "otc_id": "c",
+                "gsis_id": "00-C",
+                "year_signed": 2025,
+                "years": 2,
+                "is_active": True,
+                "position": "QB",
+                "apy": 5.0,
+                "guaranteed": 1.0,
+            },
+        ]
+    )
+    seasons = pl.DataFrame(
+        [
+            {"otc_id": "a", "year_signed": 2023, "season": 2027, "base_salary": 25.9},  # fifth-year option
+            {"otc_id": "b", "year_signed": 2024, "season": 2027, "base_salary": 1.3},  # void year placeholder
+            {"otc_id": "b", "year_signed": 2024, "season": 2028, "base_salary": 1.4},
+        ]
+    )
+    out = production._contract(contracts, 2026, seasons)
+    left = dict(zip(out["gsis_id"].to_list(), out["years_left"].to_list(), strict=True))
+    assert left == {"00-A": 1, "00-B": 0, "00-C": 0}
+    assert (
+        dict(
+            zip(
+                *production._contract(contracts, 2026)
+                .select("gsis_id", "years_left")
+                .to_dict(as_series=False)
+                .values(),
+                strict=True,
+            )
+        )["00-A"]
+        == 0
+    )
