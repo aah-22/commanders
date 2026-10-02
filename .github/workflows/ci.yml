@@ -69,9 +69,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with: { name: py-coverage }
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with: { name: web-coverage, path: web/coverage }
       - uses: SonarSource/sonarqube-scan-action@v8
         if: env.SONAR_TOKEN != ''
