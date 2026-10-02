@@ -7,7 +7,7 @@ RUN npm ci --no-audit --no-fund
 COPY . .
 RUN npm run build -- --configuration production
 
-FROM nginxinc/nginx-unprivileged:1.29-alpine
+FROM nginxinc/nginx-unprivileged:1.31-alpine
 # Pull the base image's OS security fixes (Trivy gates the build on fixable HIGH/CRITICAL findings).
 USER root
 RUN apk upgrade --no-cache
