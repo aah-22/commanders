@@ -1,4 +1,4 @@
-import { Component, computed, input } from '@angular/core';
+import { Component, computed, input, ChangeDetectionStrategy } from '@angular/core';
 import { NgxEchartsDirective } from 'ngx-echarts';
 import type { EChartsCoreOption } from 'echarts/core';
 import { NeedGroup } from '../../core/api.service';
@@ -43,6 +43,7 @@ import { fmtMoney, fmtNum, fmtPct, fmtPctile } from '../../core/format';
       }
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styles: `
     .chart { height: 340px; }
     .scroll { overflow-x: auto; }

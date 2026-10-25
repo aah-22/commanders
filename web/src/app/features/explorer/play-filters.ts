@@ -1,4 +1,4 @@
-import { Component, input, output } from '@angular/core';
+import { Component, input, output, ChangeDetectionStrategy } from '@angular/core';
 import { DistanceBucket, PlayFilters, PlayKind, PlayTag } from '../../core/api.service';
 
 const KINDS: { value: PlayKind; label: string }[] = [
@@ -88,6 +88,7 @@ export const TAGS: { value: PlayTag; label: string }[] = [
       }
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styles: `
     .filters { display: flex; flex-wrap: wrap; gap: 0.6rem 0.9rem; align-items: end; margin-bottom: 0.75rem; }
     label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.8rem; color: var(--muted); }

@@ -1,4 +1,4 @@
-import { afterNextRender, Component, DestroyRef, inject, input, signal } from '@angular/core';
+import { afterNextRender, Component, DestroyRef, inject, input, signal, ChangeDetectionStrategy } from '@angular/core';
 import { jumpTo, SECTIONS } from './sections';
 import { SectionId } from './takeaways';
 
@@ -12,6 +12,7 @@ import { SectionId } from './takeaways';
       }
     </nav>
   `,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styles: `
     .rail { position: sticky; top: 0; z-index: 5; display: flex; gap: 0.4rem; overflow-x: auto; scrollbar-width: none; padding: 0.5rem 0; background: var(--bg); border-bottom: 1px solid var(--line); }
     .rail::-webkit-scrollbar { display: none; }

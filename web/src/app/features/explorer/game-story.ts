@@ -1,4 +1,4 @@
-import { Component, computed, input } from '@angular/core';
+import { Component, computed, input, ChangeDetectionStrategy } from '@angular/core';
 import { GameInsights } from '../../core/api.service';
 import { jumpTo } from './sections';
 import { SectionId, takeaways } from './takeaways';
@@ -43,6 +43,7 @@ const GLOSSARY: [string, string][] = [
       </details>
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styles: `
     .takes { margin: 0 0 0.75rem; padding-left: 1.2rem; display: grid; gap: 0.5rem; }
     .takes li { line-height: 1.45; }

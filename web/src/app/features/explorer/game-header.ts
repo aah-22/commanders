@@ -1,4 +1,4 @@
-import { Component, computed, inject, input } from '@angular/core';
+import { Component, computed, inject, input, ChangeDetectionStrategy } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { GameDetail, GameRow, TeamInsights } from '../../core/api.service';
 
@@ -53,6 +53,7 @@ import { GameDetail, GameRow, TeamInsights } from '../../core/api.service';
       }
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styles: `
     .head { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; row-gap: 0.3rem; }
     .nav a, .nav span { display: inline-block; min-height: 44px; line-height: 44px; }

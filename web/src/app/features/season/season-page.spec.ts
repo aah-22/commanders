@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClient, withXhr } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
 import { provideEchartsCore } from 'ngx-echarts';
@@ -13,7 +13,7 @@ describe('SeasonDashboardPage', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [SeasonDashboardPage],
-      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([]), provideEchartsCore({ echarts: registerEcharts() })],
+      providers: [provideHttpClient(withXhr()), provideHttpClientTesting(), provideRouter([]), provideEchartsCore({ echarts: registerEcharts() })],
     }).compileComponents();
     http = TestBed.inject(HttpTestingController);
   });

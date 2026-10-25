@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, computed, inject } from '@angular/core';
+import { Component, computed, inject, ChangeDetectionStrategy } from '@angular/core';
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, ParamMap, Router, RouterLink } from '@angular/router';
 import { catchError, map, of, switchMap } from 'rxjs';
@@ -174,6 +174,7 @@ export function toQuery(f: PlayFilters): Record<string, string | null> {
       }
     }
   `,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styles: `
     .top { margin-top: 1rem; }
     .sec { margin-top: 1rem; scroll-margin-top: 64px; }

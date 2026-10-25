@@ -1,4 +1,4 @@
-import { Component, computed, inject } from '@angular/core';
+import { Component, computed, inject, ChangeDetectionStrategy } from '@angular/core';
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { catchError, map, of, switchMap } from 'rxjs';
@@ -72,6 +72,7 @@ const GROUPS = ['QB', 'RB', 'WR', 'TE', 'OL', 'IDL', 'ED', 'LB', 'CB', 'S'];
       }
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styles: `
     .top { margin-top: 1rem; }
     .small { font-size: 0.85rem; }

@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { catchError, of } from 'rxjs';
 import { AcquisitionCard, Acquisitions, ApiService } from '../../core/api.service';
@@ -115,6 +115,7 @@ const METRIC_LABEL: Record<string, string> = {
       </div>
     }
   `,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styles: `
     .top { margin-top: 1rem; }
     .small { font-size: 0.8rem; }

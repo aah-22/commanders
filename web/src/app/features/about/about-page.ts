@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { catchError, of } from 'rxjs';
 import { ApiService, Models } from '../../core/api.service';
@@ -63,6 +63,7 @@ import { ApiService, Models } from '../../core/api.service';
       </div>
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styles: `
     .small { font-size: 0.9rem; }
     h3 { margin-top: 1rem; font-size: 1rem; }

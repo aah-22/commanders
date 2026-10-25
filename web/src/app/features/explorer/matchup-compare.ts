@@ -1,4 +1,4 @@
-import { Component, computed, input } from '@angular/core';
+import { Component, computed, input, ChangeDetectionStrategy } from '@angular/core';
 import { Stat, TeamInsights } from '../../core/api.service';
 import { fmtStat, ordinal } from '../../core/format';
 
@@ -75,6 +75,7 @@ export interface MatchupRow {
       </details>
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styles: `
     .sw { display: inline-block; width: 0.7em; height: 0.7em; border-radius: 2px; vertical-align: -1px; }
     .sw.f { background: var(--gold); } .sw.o { background: var(--muted); }

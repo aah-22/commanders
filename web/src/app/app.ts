@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectionStrategy } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { FreshnessBanner } from './shared/freshness-banner';
 
@@ -7,6 +7,7 @@ import { FreshnessBanner } from './shared/freshness-banner';
   selector: 'app-root',
   imports: [RouterOutlet, RouterLink, RouterLinkActive, FreshnessBanner],
   templateUrl: './app.html',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './app.scss',
 })
 export class App {

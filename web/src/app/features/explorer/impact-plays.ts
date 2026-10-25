@@ -1,4 +1,4 @@
-import { Component, computed, input } from '@angular/core';
+import { Component, computed, input, ChangeDetectionStrategy } from '@angular/core';
 import { ImpactPlay, ImpactPlayer, TeamInsights } from '../../core/api.service';
 import { cleanDesc, clock, downDistance, fmtEpa, fmtPct, yardline } from '../../core/format';
 import { focusWp } from './takeaways';
@@ -73,6 +73,7 @@ export interface SwingRow {
       </div>
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styles: `
     .swings { list-style: none; margin: 0 0 1rem; padding: 0; display: grid; gap: 0.6rem; }
     .swings li { display: grid; gap: 0.15rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--line); }

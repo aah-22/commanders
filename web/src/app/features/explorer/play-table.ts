@@ -1,4 +1,4 @@
-import { Component, input } from '@angular/core';
+import { Component, input, ChangeDetectionStrategy } from '@angular/core';
 import { PlayRow } from '../../core/api.service';
 import { cleanDesc, clock, downDistance, fmtEpa, fmtPct, yardline } from '../../core/format';
 
@@ -57,6 +57,7 @@ const ALIGN: Record<string, string> = { U: 'UC', S: 'SG', P: 'P' };
       }
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styles: `
     .count { font-size: 0.9rem; font-weight: 400; margin-left: 0.4rem; }
     .scroll { overflow-x: auto; max-height: 640px; overflow-y: auto; }

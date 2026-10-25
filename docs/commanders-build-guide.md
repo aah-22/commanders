@@ -30,7 +30,7 @@ nflverse (nflreadpy)                           Coolify Compose resource `command
 | Decision | Choice | Why |
 |---|---|---|
 | Repo | new `aah-22/commanders` | own CI, Sonar project and Coolify resource; keeps draft-engine's CI fast |
-| Frontend | Angular 20 standalone + signals, ngx-echarts on `echarts/core` | the caabi.dev site is Angular; canvas charts handle play-level series |
+| Frontend | Angular 22 standalone + signals (OnPush everywhere), ngx-echarts on `echarts/core` | the caabi.dev site is Angular; canvas charts handle play-level series |
 | Backend | FastAPI + Postgres 16, GET-only, read-only DB role | mirrors draft-engine; least privilege on the public path |
 | Data | nflverse via `nflreadpy` (pbp, participation ≤ 2025, FTN charting ≥ 2022, player/team stats, snaps, rosters, depth charts, injuries, contracts, draft picks, trades, PFR adv stats, NGS) | free, versioned, well-keyed; `load_pbp` ≈ 50k plays × 372 cols per season; FTN carries the pre-snap picture participation no longer does |
 | Odds | none | not a betting site: `vegas_wp`, spread, total and moneyline columns are never mirrored |
@@ -220,7 +220,7 @@ links) · `/health`.
 
 
 ## §8 Angular pages
-### Angular (v20, standalone + signals, ngx-echarts; routes = pages)
+### Angular (v22, standalone + signals, OnPush, ngx-echarts; routes = pages)
 `/season` Season dashboard (built: `features/season/` — `RecordStrip` six tiles, `EpaTrendChart` offense/defense by
 week over the league median and inter-quartile band with bye weeks as gaps, `LeagueScatterChart` offense vs defense
 EPA with WAS highlighted and median lines, `DownDistanceHeatmap` success-rate gap to the league with thin cells
@@ -311,7 +311,13 @@ advanced stats and trades are keyed by `pfr_id` (crosswalk via `load_players`); 
 snapshots from 2025 (thin to one per week) but one row per team-week through 2024 (`club_code`, `depth_team`,
 `depth_position`; `loaders.depth_charts_legacy` maps it); `load_pfr_advstats` raises for seasons before 2018
 (`run.JOB_FIRST_SEASON` skips them); cache API is `nflreadpy.config.update_config(cache_mode=..., cache_dir=...)`.
-Angular's CLI 21 needs Node ≥ 22.22.3; the project pins Angular 20 (Node 22.x) — upgrade both together.
+Angular 22 (upgraded from 20 on 2026-10-25 by two `ng update` hops, with angular-eslint and ngx-echarts moved to
+the matching majors and TypeScript to 6) needs Node ≥ 22.22.3 or ≥ 24.15; the web Dockerfile and CI run Node 24 so a
+cached older base image cannot fall under the floor. The 22 migration stamps `ChangeDetectionStrategy.Eager` on
+every component to keep the old behaviour and wraps template `?.` reads in a `$safeNavigationMigration` helper;
+both were undone: every component is OnPush (angular-eslint 22 requires it, and they read only inputs and signals)
+and the formatters already accept `undefined`. Angular majors reach end of life 18 months after release, so plan the
+next hop before that.
 Reconciling team EPA with nflverse (verified on all 66 2026 team-games): `stats_team.rushing_epa` is `sum(epa)` over
 `play_type in (run, qb_kneel)` including aborted snaps, and `passing_epa` is `sum(qb_epa)` (not `epa`) over
 `play_type in (pass, qb_spike)` — the two differ on completed passes fumbled away. The `pass`/`rush` flags include
