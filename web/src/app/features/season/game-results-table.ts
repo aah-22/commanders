@@ -23,7 +23,7 @@ import { fmtEpa, fmtPct, fmtSignedPct } from '../../core/format';
                   <td>{{ g.gameday ?? '' }}</td>
                   <td>
                     @if (g.result) {
-                      <a [routerLink]="['/explorer', g.game_id]" title="Drives and plays">{{ g.is_home ? 'vs' : '@' }} {{ g.opponent }}</a>
+                      <a [routerLink]="['/explorer', g.game_id]" title="Game insights: story, matchup, drives, tendencies and plays">{{ g.is_home ? 'vs' : '@' }} {{ g.opponent }}</a>
                     } @else {
                       {{ g.is_home ? 'vs' : '@' }} {{ g.opponent }}
                     }

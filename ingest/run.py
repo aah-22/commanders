@@ -32,6 +32,7 @@ log = logging.getLogger("ingest")
 SEASON_JOBS = [
     "games",
     "plays",
+    "ftn_charting",
     "player_game_stats",
     "team_game_stats",
     "snap_counts",
@@ -49,8 +50,9 @@ SEASON_JOBS = [
 GLOBAL_JOBS = ["teams", "players", "contracts", "draft_picks", "trades"]
 DERIVE_JOBS = ["derive"]
 REPLACE_PER_SEASON = {"depth_charts"}  # thinned from daily snapshots, so a season is rewritten, not merged
-# nflverse publishes PFR advanced stats from 2018; asking for an earlier season raises, so those jobs are skipped.
-JOB_FIRST_SEASON = dict.fromkeys([j for j in SEASON_JOBS if j.startswith("pfr_")], 2018)
+# nflverse publishes PFR advanced stats from 2018 and FTN charting from 2022; asking for an earlier season raises, so
+# those jobs are skipped.
+JOB_FIRST_SEASON = {**dict.fromkeys([j for j in SEASON_JOBS if j.startswith("pfr_")], 2018), "ftn_charting": 2022}
 
 
 def engine():
@@ -171,6 +173,8 @@ class Ingest:
             self._write("games", self.schedule(season), season)
         elif name == "plays":
             self._write("plays", loaders.plays(nfl.load_pbp([season])), season)
+        elif name == "ftn_charting":
+            self._write("ftn_charting", loaders.ftn_charting(nfl.load_ftn_charting([season])), season)
         elif name == "player_game_stats":
             self._write(
                 "player_game_stats",

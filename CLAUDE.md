@@ -8,12 +8,19 @@ Read `docs/commanders-build-guide.md` first; it is the source of truth for archi
 
 - `api/` FastAPI, GET-only, cached (in-process TTL + Cache-Control for Cloudflare), rate-limited per
   `CF-Connecting-IP`, CORS locked to the site; connects to Postgres as the SELECT-only `commanders_ro` role.
-  Routers `meta` and `season` (`/v1/season/{season}/summary|league|games`); queries are Core selects in
-  `api/queries/`, response models in `api/schemas/`. On SQLite the engine gets the same schema translation as ingest.
+  Routers `meta`, `season` (`/v1/season/{season}/summary|league|games`), `game` (`/v1/games/{id}`, `/plays` with
+  the FTN charting columns joined and `qtr` / `tag` filters, `/insights`: both teams' efficiency, tendencies,
+  situations and defense as `Stat` / `Split` rows against the league pooled through the last complete week, the
+  quarter lines, scoring, the biggest win-probability swings and the players; the folding is in
+  `api/queries/insights.py` and its play filters mirror `ingest/derive/filters.py`) and `gm`; queries are Core
+  selects in `api/queries/`, response models in `api/schemas/`. On SQLite the engine gets the same schema translation
+  as ingest.
 - `ingest/` nflverse (`nflreadpy`) → Postgres jobs (`python -m ingest.run --nightly | --full --seasons 2016-2026 |
   --season N --jobs plays,snap_counts`), idempotent upserts on nflverse keys, per-asset digests in `ops.dataset_versions`,
   dataset lineage logged to MLflow. Loaders are pure polars transforms (`ingest/loaders.py`), so tests feed synthetic
-  frames through the production path. `ingest/derive/` rebuilds the `gm.*` tables per season as the last nightly job
+  frames through the production path. `nfl.ftn_charting` (FTN's per-play charting, 2022 onwards: QB alignment, play
+  action, screens, RPO, motion, box and rusher counts) is keyed like `plays`; nflverse writes "0" / 0 on its
+  non-scrimmage rows, so readers keep `qb_location in (U, S, P)` and `n_defense_box >= 3`. `ingest/derive/` rebuilds the `gm.*` tables per season as the last nightly job
   (`--jobs derive` alone re-derives): `team_game_summary` (offense/defense per team-game with weekly ranks) and
   `standings`. Play filters are in `ingest/derive/filters.py` — `play_type` is the base filter, never the `pass`/`rush`
   flags; `nflv_*` columns exist only to cross-check against the `nfl.team_game_stats` mirror (passing EPA is `qb_epa`).
@@ -31,9 +38,12 @@ Read `docs/commanders-build-guide.md` first; it is the source of truth for archi
 - `web/` Angular 20 (standalone components, signals, lazy routes, ngx-echarts on `echarts/core`), served by
   nginx-unprivileged which proxies `/api/` to the API so the site is same-origin. Palette: gold `#c9a233` on `#0a0a0a`.
   ECharts is registered once in `core/echarts-setup.ts` (app config and specs both call `registerEcharts()`); every
-  chart has a "Table view" twin; fixtures live in `features/<page>/testing/`. The explorer (`features/explorer/`,
-  `/explorer/:gameId`) keeps its play filters in the URL query string; drives and win probability are folded from the
-  plays server-side in `api/queries/game.py` (drive points come from the score progression and sum to the final).
+  chart has a "Table view" twin; fixtures live in `features/<page>/testing/`. The game page (`features/explorer/`,
+  `/explorer/:gameId`) is sectioned under a sticky `SectionRail` (story, matchup, drives, offense, defense, situations,
+  big plays, plays); the story's sentences come from the pure `takeaways()` in `takeaways.ts`, splits render as
+  labelled bar lists, tendencies never use the good/bad colours, and the play filters (now with quarter and tag) stay
+  in the URL query string. Drives and win probability are folded from the plays server-side in `api/queries/game.py`
+  (drive points come from the score progression and sum to the final).
 - MLflow lives at https://mlflow.caabi.dev behind Cloudflare Access (`api/mlflow_auth.py`, same as draft-engine);
   on the Droplet use the internal `http://<ip>:5000` route with the CF vars empty.
 - Infra conventions (from draft-engine / Anchor): Coolify Compose resource `commanders`, Coolify strips `ports:`,

@@ -17,7 +17,7 @@ describe('App', () => {
     const fixture = TestBed.createComponent(App);
     fixture.detectChanges();
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    for (const label of ['caabi', 'Anchor', 'Fantasy', 'MLflow', 'Season', 'Drives & plays', 'Acquisitions', 'Targets']) {
+    for (const label of ['caabi', 'Anchor', 'Fantasy', 'MLflow', 'Season', 'Games', 'Acquisitions', 'Targets']) {
       expect(text).toContain(label);
     }
   });

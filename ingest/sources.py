@@ -260,12 +260,47 @@ TEAM_GAME_STAT_COLUMNS = [
     "pt_net_yards",
 ]
 
+# FTN charting (2022 onwards): the pre-snap picture and the throw for every scrimmage play. nflverse keys it by
+# nflverse_game_id / nflverse_play_id, which the loader renames to the `plays` key; the logical flags land as 0/1 so
+# the API sums them like the pbp flags. `date_pulled` is not kept.
+FTN_COLUMNS = [
+    "game_id",
+    "play_id",
+    "season",
+    "week",
+    "ftn_game_id",
+    "ftn_play_id",
+    "starting_hash",
+    "qb_location",
+    "read_thrown",
+    "n_offense_backfield",
+    "n_defense_box",
+    "n_blitzers",
+    "n_pass_rushers",
+    "is_no_huddle",
+    "is_motion",
+    "is_play_action",
+    "is_screen_pass",
+    "is_rpo",
+    "is_trick_play",
+    "is_qb_out_of_pocket",
+    "is_interception_worthy",
+    "is_throw_away",
+    "is_catchable_ball",
+    "is_contested_ball",
+    "is_created_reception",
+    "is_drop",
+    "is_qb_sneak",
+    "is_qb_fault_sack",
+]
+
 # name → (release URL, natural key)
 SOURCES: dict[str, tuple[str, list[str]]] = {
     "teams": (f"{RELEASES}/teams/teams.csv", ["team_abbr"]),
     "players": (f"{RELEASES}/players/players.parquet", ["gsis_id"]),
     "games": (f"{RELEASES}/schedules/games.rds", ["game_id"]),
     "plays": (f"{RELEASES}/pbp/play_by_play_{{season}}.parquet", ["game_id", "play_id"]),
+    "ftn_charting": (f"{RELEASES}/ftn_charting/ftn_charting_{{season}}.parquet", ["game_id", "play_id"]),
     "player_game_stats": (f"{RELEASES}/stats_player/stats_player_week_{{season}}.parquet", ["player_id", "game_id"]),
     "team_game_stats": (f"{RELEASES}/stats_team/stats_team_week_{{season}}.parquet", ["team", "game_id"]),
     "snap_counts": (f"{RELEASES}/snap_counts/snap_counts_{{season}}.parquet", ["pfr_player_id", "game_id"]),

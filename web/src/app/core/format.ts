@@ -67,3 +67,56 @@ export function downDistance(down: number | null | undefined, ydstogo: number | 
   if (down == null) return '–';
   return `${ordinal(down)} & ${goalToGo ? 'Goal' : (ydstogo ?? '–')}`;
 }
+
+/** A rate with one decimal ("72.4%"), the most an in-game sample can carry. */
+export function fmtRate1(x: number | null | undefined): string {
+  return fmtPct(x, 1);
+}
+
+export type StatKind = 'rate' | 'epa' | 'count' | 'number';
+
+/** One value the way its kind reads: a rate to one decimal, EPA to two, a count whole, a number to one decimal. */
+export function fmtStat(x: number | null | undefined, kind: StatKind): string {
+  if (x === null || x === undefined || Number.isNaN(x)) return '–';
+  if (kind === 'rate') return fmtRate1(x);
+  if (kind === 'epa') return fmtEpa(x, 2);
+  if (kind === 'count') return `${Math.round(x)}`;
+  return fmtNum(x, 1);
+}
+
+/**
+ * The gap to the league in the kind's own unit: "+14.6 pp vs NFL" for a rate, "+0.08 vs NFL" for EPA, "about NFL avg"
+ * inside the noise (2 pp, 0.02 EPA, 0.1 otherwise), "" when either side is missing. Never coloured by itself.
+ */
+export function fmtDelta(value: number | null | undefined, league: number | null | undefined, kind: StatKind): string {
+  if (value == null || league == null || Number.isNaN(value) || Number.isNaN(league)) return '';
+  const d = value - league;
+  const eps = 1e-9; // 2.1 − 2.0 is 0.10000000000000009
+  if (kind === 'rate') {
+    const pp = 100 * d;
+    return Math.abs(pp) <= 2 + eps ? 'about NFL avg' : `${pp > 0 ? '+' : '-'}${Math.abs(pp).toFixed(1)} pp vs NFL`;
+  }
+  const noise = kind === 'epa' ? 0.02 : 0.1;
+  const digits = kind === 'epa' ? 2 : 1;
+  return Math.abs(d) <= noise + eps ? 'about NFL avg' : `${d > 0 ? '+' : '-'}${Math.abs(d).toFixed(digits)} vs NFL`;
+}
+
+/** "+15 pp" / "-8 pp": a whole-point gap between two rates for running text. */
+export function ppGap(value: number, league: number): string {
+  const pp = Math.round(100 * (value - league));
+  return `${pp > 0 ? '+' : pp < 0 ? '-' : ''}${Math.abs(pp)} pp`;
+}
+
+/**
+ * nflverse play text without the clock, the formation note and the jersey numbers:
+ * "(2:00) (Shotgun) 5-J.Daniels pass incomplete deep right to 13-T.Burks (6-M.Mustapha)." →
+ * "J.Daniels pass incomplete deep right to T.Burks (M.Mustapha)."
+ */
+export function cleanDesc(desc: string | null | undefined): string {
+  if (!desc) return '';
+  return desc
+    .replace(/^\(\d+:\d+\)\s*/, '')
+    .replace(/\((Shotgun|No Huddle|No Huddle, Shotgun|Pass formation|Punt formation|Field Goal formation|Run formation)\)\s*/gi, '')
+    .replace(/\b\d{1,2}-(?=[A-Z])/g, '')
+    .trim();
+}

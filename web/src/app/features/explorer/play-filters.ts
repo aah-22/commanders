@@ -1,5 +1,5 @@
 import { Component, input, output } from '@angular/core';
-import { DistanceBucket, PlayFilters, PlayKind } from '../../core/api.service';
+import { DistanceBucket, PlayFilters, PlayKind, PlayTag } from '../../core/api.service';
 
 const KINDS: { value: PlayKind; label: string }[] = [
   { value: 'all', label: 'All plays' },
@@ -14,8 +14,29 @@ const BUCKETS: { value: DistanceBucket; label: string }[] = [
   { value: 'long', label: '7–10' },
   { value: 'xlong', label: '11+' },
 ];
+const QUARTERS: { value: number; label: string }[] = [
+  { value: 1, label: 'Q1' },
+  { value: 2, label: 'Q2' },
+  { value: 3, label: 'Q3' },
+  { value: 4, label: 'Q4' },
+  { value: 5, label: 'OT' },
+];
+export const TAGS: { value: PlayTag; label: string }[] = [
+  { value: 'big_swing', label: 'Big WP swings' },
+  { value: 'explosive', label: 'Explosive plays' },
+  { value: 'play_action', label: 'Play action' },
+  { value: 'screen', label: 'Screens' },
+  { value: 'rpo', label: 'RPO' },
+  { value: 'motion', label: 'Pre-snap motion' },
+  { value: 'no_huddle', label: 'No huddle' },
+  { value: 'scramble', label: 'Scrambles' },
+  { value: 'pressure', label: 'Pressure (sack or hit)' },
+  { value: 'blitz', label: 'Blitzed' },
+  { value: 'light_box', label: 'Light box (6 or fewer)' },
+  { value: 'penalty', label: 'Penalties' },
+];
 
-/** Offense / type / down / distance / red zone / drive selects; each change emits the whole filter set. */
+/** Offense / type / quarter / down / distance / red zone / drive / tag selects; each change emits the whole filter set. */
 @Component({
   selector: 'app-play-filters',
   template: `
@@ -29,6 +50,12 @@ const BUCKETS: { value: DistanceBucket; label: string }[] = [
       <label>Plays
         <select [value]="filters().type ?? 'all'" (change)="set('type', value($event))">
           @for (k of kinds; track k.value) { <option [value]="k.value">{{ k.label }}</option> }
+        </select>
+      </label>
+      <label>Quarter
+        <select [value]="filters().qtr ?? ''" (change)="set('qtr', value($event))">
+          <option value="">Any</option>
+          @for (q of quarters; track q.value) { <option [value]="q.value">{{ q.label }}</option> }
         </select>
       </label>
       <label>Down
@@ -49,6 +76,12 @@ const BUCKETS: { value: DistanceBucket; label: string }[] = [
           @for (d of drives(); track d) { <option [value]="d">{{ d }}</option> }
         </select>
       </label>
+      <label>Show only
+        <select [value]="filters().tag ?? ''" (change)="set('tag', value($event))">
+          <option value="">Everything</option>
+          @for (t of tags; track t.value) { <option [value]="t.value">{{ t.label }}</option> }
+        </select>
+      </label>
       <label class="check"><input type="checkbox" [checked]="filters().rz ?? false" (change)="set('rz', checked($event))" /> Red zone</label>
       @if (active()) {
         <button type="button" (click)="changed.emit({})">Clear</button>
@@ -56,12 +89,12 @@ const BUCKETS: { value: DistanceBucket; label: string }[] = [
     </div>
   `,
   styles: `
-    .filters { display: flex; flex-wrap: wrap; gap: 0.75rem 1rem; align-items: end; margin-bottom: 0.75rem; }
+    .filters { display: flex; flex-wrap: wrap; gap: 0.6rem 0.9rem; align-items: end; margin-bottom: 0.75rem; }
     label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.8rem; color: var(--muted); }
-    label.check { flex-direction: row; align-items: center; gap: 0.4rem; padding-bottom: 0.45rem; }
-    select, button { background: var(--panel-2); color: var(--text); border: 1px solid var(--line-2); border-radius: 6px; padding: 0.3rem 0.5rem; font: inherit; font-size: 0.9rem; }
+    label.check { flex-direction: row; align-items: center; gap: 0.4rem; min-height: 44px; }
+    select, button { min-height: 40px; background: var(--panel-2); color: var(--text); border: 1px solid var(--line-2); border-radius: 6px; padding: 0.3rem 0.5rem; font: inherit; font-size: 0.9rem; }
     button { color: var(--gold); cursor: pointer; }
-    input[type='checkbox'] { accent-color: var(--gold); }
+    input[type='checkbox'] { accent-color: var(--gold); width: 1.1rem; height: 1.1rem; }
   `,
 })
 export class PlayFiltersBar {
@@ -71,10 +104,12 @@ export class PlayFiltersBar {
   readonly changed = output<PlayFilters>();
   readonly kinds = KINDS;
   readonly buckets = BUCKETS;
+  readonly quarters = QUARTERS;
+  readonly tags = TAGS;
 
   active(): boolean {
     const f = this.filters();
-    return Boolean(f.posteam || f.down || f.distance || f.rz || f.drive || (f.type && f.type !== 'all'));
+    return Boolean(f.posteam || f.down || f.distance || f.rz || f.drive || f.qtr || f.tag || (f.type && f.type !== 'all'));
   }
 
   value(e: Event): string {
@@ -89,7 +124,7 @@ export class PlayFiltersBar {
     const next: PlayFilters = { ...this.filters() };
     if (raw === '' || raw === false) {
       delete next[key];
-    } else if (key === 'down' || key === 'drive') {
+    } else if (key === 'down' || key === 'drive' || key === 'qtr') {
       next[key] = Number(raw);
     } else if (key === 'rz') {
       next.rz = true;
@@ -97,6 +132,8 @@ export class PlayFiltersBar {
       next.type = raw as PlayKind;
     } else if (key === 'distance') {
       next.distance = raw as DistanceBucket;
+    } else if (key === 'tag') {
+      next.tag = raw as PlayTag;
     } else {
       next.posteam = raw as string;
     }

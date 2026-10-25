@@ -3,16 +3,25 @@ import { Component, computed, inject } from '@angular/core';
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, ParamMap, Router, RouterLink } from '@angular/router';
 import { catchError, map, of, switchMap } from 'rxjs';
-import { ApiService, DistanceBucket, GameDetail, GamePlays, GameRow, PlayFilters, PlayKind } from '../../core/api.service';
+import { ApiService, DistanceBucket, GameDetail, GameInsights, GamePlays, GameRow, PlayFilters, PlayKind, PlayTag } from '../../core/api.service';
+import { fmtEpa } from '../../core/format';
 import { DownDistanceHeatmap } from '../season/down-distance-heatmap';
 import { DriveChart } from './drive-chart';
 import { GameHeader } from './game-header';
-import { PlayFiltersBar } from './play-filters';
+import { GameStory } from './game-story';
+import { ImpactPlays } from './impact-plays';
+import { MatchupCompare } from './matchup-compare';
+import { PlayFiltersBar, TAGS } from './play-filters';
 import { PlayTable } from './play-table';
+import { SectionRail } from './section-rail';
+import { jumpTo } from './sections';
+import { SituationsTable } from './situations-table';
+import { TendencyPanel } from './tendency-panel';
 import { WinProbChart } from './win-prob-chart';
 
 const BUCKETS: DistanceBucket[] = ['short', 'mid', 'long', 'xlong'];
 const KINDS: PlayKind[] = ['all', 'scrimmage', 'pass', 'run', 'special'];
+const TAG_VALUES = new Set<string>(TAGS.map((t) => t.value));
 
 /** The filters live in the URL so a filtered view is a link; unknown values are dropped rather than sent. */
 export function parseFilters(q: ParamMap): PlayFilters {
@@ -28,6 +37,10 @@ export function parseFilters(q: ParamMap): PlayFilters {
   if (drive >= 1) f.drive = drive;
   const type = q.get('type') as PlayKind | null;
   if (type && KINDS.includes(type) && type !== 'all') f.type = type;
+  const qtr = Number(q.get('qtr'));
+  if (qtr >= 1 && qtr <= 5) f.qtr = qtr;
+  const tag = q.get('tag');
+  if (tag && TAG_VALUES.has(tag)) f.tag = tag as PlayTag;
   return f;
 }
 
@@ -39,15 +52,35 @@ export function toQuery(f: PlayFilters): Record<string, string | null> {
     rz: f.rz ? 'true' : null,
     drive: f.drive ? `${f.drive}` : null,
     type: f.type && f.type !== 'all' ? f.type : null,
+    qtr: f.qtr ? `${f.qtr}` : null,
+    tag: f.tag ?? null,
   };
 }
 
-/** /explorer picks a game from the schedule; /explorer/:gameId is the drive and play explorer for it. */
+/**
+ * /explorer lists the team's played games; /explorer/:gameId is the game page: the story, the matchup against the
+ * league, drives and win probability, each side's tendencies, the situations, the biggest swings and the play list,
+ * under a sticky rail of section chips.
+ */
 @Component({
   selector: 'app-explorer-page',
-  imports: [RouterLink, GameHeader, WinProbChart, DriveChart, DownDistanceHeatmap, PlayFiltersBar, PlayTable],
+  imports: [
+    RouterLink,
+    GameHeader,
+    SectionRail,
+    GameStory,
+    MatchupCompare,
+    WinProbChart,
+    DriveChart,
+    TendencyPanel,
+    DownDistanceHeatmap,
+    SituationsTable,
+    ImpactPlays,
+    PlayFiltersBar,
+    PlayTable,
+  ],
   template: `
-    <p class="caabi-kicker">Drive &amp; play explorer</p>
+    <p class="caabi-kicker">Game insights</p>
     @if (!gameId()) {
       <h1>Pick a game</h1>
       @let gs = games();
@@ -59,11 +92,12 @@ export function toQuery(f: PlayFilters): Record<string, string | null> {
         <div class="panel"><p>No games played yet this season.</p></div>
       } @else {
         <div class="panel">
+          <p class="muted">Every played game, latest first, with the offense's EPA per play that day.</p>
           <ul class="picker">
             @for (g of gs; track g.game_id) {
               <li>
-                <a [routerLink]="['/explorer', g.game_id]">Week {{ g.week }} · {{ g.is_home ? 'vs' : '@' }} {{ g.opponent }}</a>
-                <span class="muted">{{ g.result }} {{ g.points_for }}–{{ g.points_against }} · {{ g.gameday }}</span>
+                <a [routerLink]="['/explorer', g.game_id]"><span class="chip" [class.w]="g.result === 'W'" [class.l]="g.result === 'L'">{{ g.result }}</span> Week {{ g.week }} · {{ g.is_home ? 'vs' : '@' }} {{ g.opponent }} · {{ g.points_for }}–{{ g.points_against }}</a>
+                <span class="muted">{{ g.gameday }} · off EPA/play {{ epa(g.summary?.off_epa_per_play, 2) }}</span>
               </li>
             }
           </ul>
@@ -77,27 +111,57 @@ export function toQuery(f: PlayFilters): Record<string, string | null> {
         <h1>Game not found</h1>
         <div class="panel"><p>No game {{ gameId() }} in the database. <a routerLink="/explorer">Pick another game</a>.</p></div>
       } @else {
+        @let ins = insights();
         <h1>{{ g.away_team }} &#64; {{ g.home_team }}, week {{ g.week }}</h1>
-        <app-game-header [game]="g" />
+        <app-game-header [game]="g" [teams]="ins?.teams ?? null" [games]="games() ?? []" />
         @if (!g.played) {
           <div class="panel top"><p>Not played yet. Plays land the morning after the game.</p></div>
         } @else {
-          <div class="grid cols-2 top">
+          <app-section-rail class="top" />
+          <section id="story" class="sec">
+            @if (ins === undefined) {
+              <div class="panel"><p class="muted">Working out the story…</p></div>
+            } @else if (ins === null) {
+              <div class="panel"><p>Insights are unavailable right now; the drives and plays below still work.</p></div>
+            } @else {
+              <app-game-story [insights]="ins" />
+            }
+          </section>
+          <section id="matchup" class="sec">
+            @if (ins) {
+              <app-matchup-compare [focus]="ins.teams[0]" [opp]="ins.teams[1]" [throughWeek]="ins.league_through_week" />
+            } @else if (ins === null) {
+              <div class="panel"><p class="muted">Matchup unavailable right now.</p></div>
+            }
+          </section>
+          <section id="drives" class="sec grid cols-2">
             <app-win-prob-chart [points]="g.win_prob" [home]="g.home_team" [away]="g.away_team" />
             <app-drive-chart [drives]="g.drives" [team]="g.team" [onDrive]="selectDrive" />
-          </div>
-          <div class="grid cols-2 top">
+          </section>
+          <section id="offense" class="sec">
+            @if (ins) {
+              <app-tendency-panel [teams]="ins.teams" mode="offense" [isCharted]="ins.charted" [throughWeek]="ins.league_through_week" />
+            } @else if (ins === null) {
+              <div class="panel"><p class="muted">Tendencies unavailable right now.</p></div>
+            }
+          </section>
+          <section id="defense" class="sec">
+            @if (ins) {
+              <app-tendency-panel [teams]="ins.teams" mode="defense" [isCharted]="ins.charted" [throughWeek]="ins.league_through_week" />
+            }
+          </section>
+          <section id="situations" class="sec grid cols-2">
             <app-down-distance-heatmap [cells]="g.down_distance" [caption]="g.team + ' offense in this game against the league season rate.'" />
-            <div class="panel">
-              <h2>Reading the page</h2>
-              <p class="muted small">
-                EPA is nflverse's expected points added per play; a drive's EPA sums its pass and run plays. Win probability is
-                the home team's before each play. Filters below narrow the play table and are part of the page address, so a
-                filtered view can be shared. Click a drive bar to jump to its plays.
-              </p>
-            </div>
-          </div>
-          <div class="top">
+            @if (ins) {
+              <app-situations-table [focus]="ins.teams[0]" [opp]="ins.teams[1]" />
+            }
+          </section>
+          <section id="big-plays" class="sec">
+            @if (ins) {
+              <app-impact-plays [plays]="ins.impact_plays" [teams]="ins.teams" [focus]="ins.team" [home]="g.home_team" [onDrive]="selectDrive" />
+            }
+          </section>
+          <section id="plays" class="sec">
             <app-play-filters [filters]="filters()" [teams]="[g.away_team, g.home_team]" [drives]="driveNumbers()" (changed)="setFilters($event)" />
             @let ps = plays();
             @if (ps === null) {
@@ -105,22 +169,27 @@ export function toQuery(f: PlayFilters): Record<string, string | null> {
             } @else {
               <app-play-table [plays]="ps?.plays ?? []" />
             }
-          </div>
+          </section>
         }
       }
     }
   `,
   styles: `
     .top { margin-top: 1rem; }
+    .sec { margin-top: 1rem; scroll-margin-top: 64px; }
     .picker { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.4rem; }
     .picker li { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; border-bottom: 1px solid var(--line); padding: 0.35rem 0; }
-    .small { font-size: 0.85rem; }
+    .picker a { display: inline-flex; align-items: center; min-height: 44px; gap: 0.5rem; }
+    .chip { padding: 0 0.45rem; border: 1px solid var(--line-2); border-radius: 999px; color: var(--muted); font-size: 0.75rem; font-weight: 600; }
+    .chip.w { border-color: var(--good); color: var(--good); }
+    .chip.l { border-color: var(--bad); color: var(--bad); }
   `,
 })
 export class DriveExplorerPage {
   private readonly api = inject(ApiService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  readonly epa = fmtEpa;
 
   readonly gameId = toSignal(this.route.paramMap.pipe(map((p) => p.get('gameId'))), { initialValue: null });
   readonly filters = toSignal(this.route.queryParamMap.pipe(map(parseFilters)), { initialValue: {} as PlayFilters });
@@ -129,6 +198,13 @@ export class DriveExplorerPage {
   readonly game = toSignal<GameDetail | null | undefined>(
     toObservable(this.gameId).pipe(
       switchMap((id) => (id ? this.api.game(id).pipe(catchError(() => of(null))) : of(undefined))),
+    ),
+  );
+
+  /** undefined while loading, null when the request failed; the page still shows drives and plays without it. */
+  readonly insights = toSignal<GameInsights | null | undefined>(
+    toObservable(this.gameId).pipe(
+      switchMap((id) => (id ? this.api.gameInsights(id).pipe(catchError(() => of(null))) : of(undefined))),
     ),
   );
 
@@ -142,21 +218,19 @@ export class DriveExplorerPage {
 
   readonly driveNumbers = computed(() => this.game()?.drives.map((d) => d.drive) ?? []);
 
-  /** The picker's list: this season's played games for the configured team, most recent first. */
+  /** The team's played games this season, most recent first: the picker's list and the header's jump list. */
   readonly games = toSignal<GameRow[] | null | undefined>(
-    toObservable(this.gameId).pipe(
-      switchMap((id) => {
-        if (id) return of(undefined);
-        return this.api.freshness().pipe(
-          switchMap((f) => this.api.seasonGames(f.season)),
-          map((sg) => sg.games.filter((g) => g.result).reverse()),
-          catchError((e: HttpErrorResponse) => of(e.status === 404 ? [] : null)),
-        );
-      }),
+    this.api.freshness().pipe(
+      switchMap((f) => this.api.seasonGames(f.season)),
+      map((sg) => sg.games.filter((g) => g.result).reverse()),
+      catchError((e: HttpErrorResponse) => of(e.status === 404 ? [] : null)),
     ),
   );
 
-  readonly selectDrive = (drive: number): void => this.setFilters({ ...this.filters(), drive });
+  readonly selectDrive = (drive: number): void => {
+    this.setFilters({ ...this.filters(), drive });
+    jumpTo('plays');
+  };
 
   setFilters(f: PlayFilters): void {
     void this.router.navigate([], { relativeTo: this.route, queryParams: toQuery(f), replaceUrl: true });

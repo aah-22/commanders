@@ -32,7 +32,7 @@ nflverse (nflreadpy)                           Coolify Compose resource `command
 | Repo | new `aah-22/commanders` | own CI, Sonar project and Coolify resource; keeps draft-engine's CI fast |
 | Frontend | Angular 20 standalone + signals, ngx-echarts on `echarts/core` | the caabi.dev site is Angular; canvas charts handle play-level series |
 | Backend | FastAPI + Postgres 16, GET-only, read-only DB role | mirrors draft-engine; least privilege on the public path |
-| Data | nflverse via `nflreadpy` (pbp, participation ≤ 2025, player/team stats, snaps, rosters, depth charts, injuries, contracts, draft picks, trades, PFR adv stats, NGS) | free, versioned, well-keyed; `load_pbp` ≈ 50k plays × 372 cols per season |
+| Data | nflverse via `nflreadpy` (pbp, participation ≤ 2025, FTN charting ≥ 2022, player/team stats, snaps, rosters, depth charts, injuries, contracts, draft picks, trades, PFR adv stats, NGS) | free, versioned, well-keyed; `load_pbp` ≈ 50k plays × 372 cols per season; FTN carries the pre-snap picture participation no longer does |
 | Odds | none | not a betting site: `vegas_wp`, spread, total and moneyline columns are never mirrored |
 | Models | `production-projection`, `acquisition-value`, `position-impact` in MLflow, alias `champion`, gate = beats champion and a naive baseline | the GM lens needs a projection, a cost model and a need weighting |
 | Access | public, no Cloudflare Access | portfolio piece; abuse handled by edge cache + rate limits |
@@ -89,7 +89,13 @@ Raw mirrors (idempotent upserts keyed as nflverse keys them): `games` (schedules
 play_id — ~50k rows/season, index on (season, posteam), (season, defteam)), `participation` (offense/defense personnel
 per play), `player_game_stats` (player_id, season, week), `snaps` (pfr_player_id → gsis, game), `rosters_weekly`,
 `draft_picks`, `contracts` (OTC: player, team, apy, guaranteed, years, per-season cap hits, is_active),
-`players` (ids crosswalk from load_ff_playerids + rosters), `teams`.
+`players` (ids crosswalk from load_ff_playerids + rosters), `teams`, **`ftn_charting`** (built with the game
+insights, migration `0006`: FTN's per-play charting from 2022 — `qb_location` U / S / P, `n_offense_backfield`,
+`n_defense_box`, `n_blitzers`, `n_pass_rushers`, `read_thrown`, `starting_hash` and the `is_*` flags for no huddle,
+motion, play action, screen, RPO, trick play, out of pocket, interception-worthy, throw-away, catchable, contested,
+created reception, drop, sneak and QB-fault sack as 0/1 — keyed (game_id, play_id) like `plays`; nflverse writes "0" /
+0 on kickoffs and punts, so readers keep `qb_location in (U, S, P)` and `n_defense_box >= 3`; the `ftn_charting`
+season job runs right after `plays` and skips seasons before 2022).
 Derived (`ingest/derive/`, rebuilt per season as the last `--nightly` job, delete-then-upsert inside the run's
 transaction): **`gm.team_game_summary`** (built; one row per team-game: offense `off_*` and defense `def_*` = allowed
 — EPA/play, success %, explosive %, pass/rush EPA, dropback success, early-down EPA, pass rate and PROE on neutral
@@ -179,9 +185,26 @@ folded from the plays in Python with pass + run counts, yards, EPA, `fixed_drive
 progression — the score at the next drive's first play, or the final score for the last drive, minus the score at this
 drive's first play, so the drive points always sum to the final; the home team's win-probability trace closed with the
 result; the focus team's down × distance cells for this game against the league season rate) and
-`/api/v1/games/{game_id}/plays?posteam=&down=&distance=&rz=&drive=&type=` (`type` ∈ all / scrimmage / pass / run /
-special; game order). The focus team is the configured one when it played, else the home team, so every game is
+`/api/v1/games/{game_id}/plays?posteam=&down=&distance=&rz=&drive=&type=&qtr=&tag=` (`type` ∈ all / scrimmage /
+pass / run / special; `qtr` 1–4 or 5 for overtime; `tag` ∈ play_action / screen / rpo / motion / blitz / light_box /
+pressure / scramble / explosive / no_huddle / penalty / big_swing; game order; every row carries the FTN charting
+columns and `charted`). The focus team is the configured one when it played, else the home team, so every game is
 browsable. A malformed id is 422, an unknown one 404. Queries in `api/queries/game.py`.
+Built (game insights): `/api/v1/games/{game_id}/insights?team=` — for the focus team and the opponent (`teams[0]`,
+`teams[1]`) the offense's `efficiency` (from `gm.team_game_summary`, with the week's rank where it ranks the
+metric), `tendencies` (dropback rate, PROE, alignment, tempo, play action, screens, RPO, motion, scrambles, pressure
+taken, depth of target, blitzes and boxes faced), `by_down`, `splits` (QB alignment, dropback vs run, pass and run
+direction, target depth, box counts faced), `situations` (third and fourth down, red zone, late downs, sacks,
+turnovers), `defense` (allowed and generated: EPA, success, explosive, third down, red zone, points per drive,
+takeaways, sacks, pressure, blitz rate, rushers, light boxes) with `defense_splits`, the `quarters` line, and the
+`players` the offense ran through; plus the game's `scoring` plays (a try folds into its touchdown) and
+`impact_plays` (the ten biggest win-probability swings, from the home side). Every number is a `Stat` (value, n,
+league, league_n, rank, teams, kind, better) or a `Split` of `Share`s; the league is pooled (Σ numerators / Σ
+denominators) over the season through the last complete week, from `gm.team_game_summary` for the derived metrics
+and from one aggregate select over `nfl.plays` ⟕ `nfl.ftn_charting` for the play-level ones; the play filters are
+the derive's (`ingest/derive/filters.py`). FTN-backed stats are null with n 0 for a game not charted yet
+(`charted: false`); `played: false` returns the shells. Folding in `api/queries/insights.py`; expectations worked by
+hand in `tests/test_insights_api.py` from `tests/seed.py` (`EXTRA`, `FTN`, `INSIGHT_PLAYERS`).
 Built (phase 4): `/api/v1/gm/acquisitions?season=&since=` (cards for arrivals `since`–`season`, default this season
 and the two before it, graded over every qualified season the player has spent on the team since arriving —
 snap-weighted production percentile against the snap-weighted expectation, the value model's where it has scored that
@@ -203,13 +226,26 @@ week over the league median and inter-quartile band with bye weeks as gaps, `Lea
 EPA with WAS highlighted and median lines, `DownDistanceHeatmap` success-rate gap to the league with thin cells
 dimmed, `GameResultsTable`; every chart has a table twin under "Table view"; ECharts registered once in
 `core/echarts-setup.ts` for the app and the specs; fixtures in `features/season/testing/`),
-`/explorer/:gameId` Drive & play explorer (built: `features/explorer/` — `GameHeader` score line with prev / next
-arrows, `WinProbChart` home win probability on elapsed time with quarter gridlines, `DriveChart` EPA per drive in gold
-for the focus team labelled with the result and click-to-filter, the season `DownDistanceHeatmap` reused with a
-game caption, `PlayFiltersBar` whose state lives in the URL query string so a filtered view is a link, `PlayTable` with
-clock, down & distance, ball spot, description chips for TD / INT / FUM / sack / flag / 1st, EPA coloured beyond ±0.5;
-`/explorer` alone lists the team's played games; the season game table links each played row through;
-`core/format.ts` gained `clock`, `yardline`, `downDistance`),
+`/explorer/:gameId` Game insights (built: `features/explorer/` — `GameHeader` score line with prev / next arrows,
+the quarter line score and a jump-to-game select; a sticky `SectionRail` of chips (Story · Matchup · Drives ·
+Offense · Defense · Situations · Big plays · Plays) with IntersectionObserver scroll-spy over `section` anchors;
+`GameStory` with three to five sentences from the pure `takeaways()` (result and EPA, then the largest departures
+from the league — pass lean with PROE, alignment, play action / screens / motion, pressure, third down, red zone, the
+second-half swing, the biggest WP play — each linking to its section) and a glossary; `MatchupCompare` mirrored bars
+focus-gold / opponent-grey with the league tick and the week's rank, table twin; `WinProbChart` home win probability
+on elapsed time with quarter gridlines; `DriveChart` EPA per drive, click-to-filter; `TendencyPanel` for offense and
+defense with a team toggle, every `Split` as a labelled bar list (never a stacked bar with labels inside), the
+rates as cells with n and a neutral "+14.6 pp vs NFL" (green / red only where `better` says so, samples under 10
+muted, "not charted yet" for FTN rows the week has not published); the season `DownDistanceHeatmap` reused with a
+game caption; `SituationsTable` both offenses against the league; `ImpactPlays` the eight biggest swings from the
+focus team's side with a "plays of this drive" link and the players who moved the game; `PlayFiltersBar` (offense,
+type, quarter, down, distance, drive, "show only" tag, red zone) whose state lives in the URL query string so a
+filtered view is a link; `PlayTable` with clock, score, down & distance, ball spot, the alignment letter, chips for
+TD / INT / FUM / sack / hit / scramble / flag / 1st / PA / screen / RPO / motion / no huddle / blitz n / light box /
+stacked box, EPA coloured beyond ±0.5, the WP swing in the tooltip, and the WP and ball-on columns hidden under
+640 px; `/explorer` alone lists the team's played games with a W / L / T chip and the offense's EPA; the season game
+table links each played row through; `core/format.ts` has `clock`, `yardline`, `downDistance`, `fmtStat`,
+`fmtDelta`, `ppGap`, `cleanDesc`),
 `/gm/acquisitions` report cards (built: `features/gm/acquisitions-page.ts` — `ValueScatterChart` production vs cost
 percentile with the fair line, a sortable table filtered by arrival season and how, `GradeChip` A–F, the metric
 value with its sample and whether the expectation came from the model or the cost percentile),
@@ -252,6 +288,10 @@ Deployment steps live in `docs/DEPLOY.md`.
   `python -m ingest.run --full --jobs team_game_stats,derive` for the earlier seasons.
 - A red `nightly-ingest` is usually nflverse not having published yet: the job retries next night; the site's
   freshness banner shows the week the data runs through.
+- After deploying the game insights (migration `0006` runs at API start): `python -m ingest.run --full --seasons
+  2022-2026 --jobs ftn_charting` once from the api container (a few MB per season; the nightly run keeps the current
+  season fresh from then on). Until it has run, the insights show "not charted yet" for the FTN-backed rows and the
+  rest of the page works.
 
 ## §11 Gotchas
 

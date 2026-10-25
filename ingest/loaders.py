@@ -8,6 +8,7 @@ from datetime import date, timedelta
 import polars as pl
 
 from ingest.sources import (
+    FTN_COLUMNS,
     GAME_COLUMNS,
     PBP_COLUMNS,
     PLAYER_COLUMNS,
@@ -15,6 +16,12 @@ from ingest.sources import (
     TEAM_COLUMNS,
     TEAM_GAME_STAT_COLUMNS,
 )
+
+FTN_INT_COLUMNS = [
+    c
+    for c in FTN_COLUMNS
+    if c.startswith(("is_", "n_")) or c in ("play_id", "season", "week", "ftn_game_id", "ftn_play_id")
+]
 
 INT_PLAY_COLUMNS = [
     "play_id",
@@ -102,6 +109,16 @@ def plays(df: pl.DataFrame) -> pl.DataFrame:
     """The ~60 of 372 pbp columns the site uses; no vegas_wp / spread columns, by design."""
     out = _keep(df, PBP_COLUMNS).filter(pl.col("play_id").is_not_null())
     return _ints(out, INT_PLAY_COLUMNS)
+
+
+def ftn_charting(df: pl.DataFrame) -> pl.DataFrame:
+    """FTN's per-play charting keyed like `plays` (nflverse_game_id / nflverse_play_id → game_id / play_id), with the
+    logical flags as 0/1 so the API can sum them like the pbp flags. Values stay raw otherwise: nflverse writes "0" for
+    `qb_location` and 0 for the box count on non-scrimmage rows, and the readers filter those out."""
+    renames = {"nflverse_game_id": "game_id", "nflverse_play_id": "play_id"}
+    out = df.rename({k: v for k, v in renames.items() if k in df.columns})
+    out = _keep(out, FTN_COLUMNS).filter(pl.col("game_id").is_not_null() & pl.col("play_id").is_not_null())
+    return _ints(out, FTN_INT_COLUMNS)
 
 
 def player_game_stats(df: pl.DataFrame) -> pl.DataFrame:
