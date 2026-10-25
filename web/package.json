@@ -23,12 +23,12 @@
   },
   "private": true,
   "dependencies": {
-    "@angular/common": "^20.3.0",
-    "@angular/compiler": "^20.3.0",
-    "@angular/core": "^20.3.0",
-    "@angular/forms": "^20.3.0",
-    "@angular/platform-browser": "^20.3.0",
-    "@angular/router": "^20.3.0",
+    "@angular/common": "^20.3.33",
+    "@angular/compiler": "^20.3.33",
+    "@angular/core": "^20.3.33",
+    "@angular/forms": "^20.3.33",
+    "@angular/platform-browser": "^20.3.33",
+    "@angular/router": "^20.3.33",
     "echarts": "^6.1.0",
     "ngx-echarts": "^20.0.2",
     "rxjs": "~7.8.0",
@@ -36,9 +36,9 @@
     "zone.js": "^0.15.1"
   },
   "devDependencies": {
-    "@angular/build": "^20.3.37",
-    "@angular/cli": "^20.3.37",
-    "@angular/compiler-cli": "^20.3.0",
+    "@angular/build": "^20.3.38",
+    "@angular/cli": "^20.3.38",
+    "@angular/compiler-cli": "^20.3.33",
     "@types/jasmine": "~5.1.0",
     "angular-eslint": "20.7.0",
     "eslint": "^9.39.1",
@@ -49,6 +49,6 @@
     "karma-jasmine": "~5.1.0",
     "karma-jasmine-html-reporter": "~2.3.0",
     "typescript": "~5.9.2",
-    "typescript-eslint": "8.70.1"
+    "typescript-eslint": "8.71.1"
   }
 }
