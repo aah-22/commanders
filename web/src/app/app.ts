@@ -20,7 +20,7 @@ export class App {
   ];
   readonly pages = [
     { path: '/season', label: 'Season' },
-    { path: '/explorer', label: 'Drives & plays' },
+    { path: '/explorer', label: 'Games' },
     { path: '/gm/acquisitions', label: 'Acquisitions' },
     { path: '/gm/targets', label: 'Targets' },
     { path: '/about', label: 'About' },

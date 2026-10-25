@@ -81,12 +81,56 @@ NYG_G1_PLAYS = [
 ]
 # fmt: on
 
+# What the insights endpoint reads beyond the columns above, by play id: alignment, tempo, directions, air yards,
+# the players involved and the win-probability swing. Added on top of the tuples so the hand-worked expectations in
+# the derive and season tests stay as they are (see tests/test_insights_api.py for the arithmetic on these).
+EXTRA: dict[int, dict] = {
+    2: {"shotgun": 1, "pass_location": "left", "air_yards": 18.0, "passer_player_id": "00-Q1", "receiver_player_id": "00-W2", "wpa": 0.05, "complete_pass": 1},
+    3: {"shotgun": 0, "run_location": "middle", "rusher_player_id": "00-R1", "wpa": -0.02},
+    4: {"shotgun": 1, "passer_player_id": "00-Q1", "wpa": -0.06},
+    5: {"shotgun": 1, "qb_scramble": 1, "rusher_player_id": "00-Q1", "wpa": 0.01},
+    6: {"wpa": -0.03},
+    7: {"shotgun": 1, "pass_location": "right", "air_yards": 18.0, "passer_player_id": "00-Q1", "receiver_player_id": "00-W3", "touchdown": 1, "wpa": 0.12, "complete_pass": 1},
+    8: {"wpa": -0.01},
+    9: {"wpa": -0.01},
+    10: {"rusher_player_id": "00-R1", "wpa": -0.10},
+    11: {"wpa": 0.0},
+    12: {"shotgun": 1, "no_huddle": 1, "pass_location": "middle", "air_yards": 5.0, "passer_player_id": "00-Q1", "receiver_player_id": "00-W2", "wpa": -0.20, "complete_pass": 1},
+    13: {"shotgun": 1, "qb_hit": 1, "pass_location": "right", "air_yards": 1.0, "passer_player_id": "00-Q1", "receiver_player_id": "00-W3", "wpa": -0.15},
+    21: {"shotgun": 1, "qb_hit": 1, "pass_location": "left", "air_yards": 7.0, "passer_player_id": "00-N1", "receiver_player_id": "00-W5", "wpa": 0.03, "complete_pass": 1},
+    22: {"shotgun": 0, "run_location": "left", "rusher_player_id": "00-N2", "wpa": -0.04},
+    23: {"shotgun": 1, "pass_location": "right", "air_yards": 4.0, "passer_player_id": "00-N1", "receiver_player_id": "00-W5", "wpa": 0.01, "complete_pass": 1},
+}  # fmt: skip
+# Players the hand-built game credits that tests/seed_gm.py does not already seed.
+INSIGHT_PLAYERS = [
+    ("00-R1", "Austin Ekeler", "RB", "WAS"),
+    ("00-N1", "Jaxson Dart", "QB", "NYG"),
+    ("00-N2", "Tyrone Tracy", "RB", "NYG"),
+]
+# FTN charting for the hand-built game: every WAS and NYG scrimmage play plus the opening kickoff's "0" sentinel row;
+# nothing for the no-play, the kneel, the aborted snap or the spike (nflverse does not chart those either).
+FTN = [
+    # play, qb location, box, rushers, blitzers, play action, screen, rpo, motion
+    (1, "0", 0, 0, 0, 0, 0, 0, 0),
+    (2, "S", 6, 4, 0, 0, 0, 0, 1),
+    (3, "U", 7, 0, 0, 0, 0, 0, 0),
+    (4, "S", 6, 5, 1, 1, 0, 0, 0),
+    (5, "S", 5, 4, 0, 0, 0, 0, 0),
+    (7, "P", 7, 4, 0, 1, 0, 0, 1),
+    (12, "S", 6, 6, 2, 0, 1, 0, 0),
+    (13, "S", 4, 3, 0, 0, 0, 0, 0),
+    (21, "S", 6, 4, 0, 1, 0, 0, 0),
+    (22, "U", 8, 0, 0, 0, 0, 0, 0),
+    (23, "S", 7, 5, 1, 0, 0, 0, 1),
+]  # fmt: skip
+
 
 def _rows(game_id: str, week: int, posteam: str, defteam: str, plays: list[tuple]) -> list[dict]:
     out = []
     for p in plays:
         row = dict(zip(PLAY_COLUMNS, p, strict=True))
         row.update(game_id=game_id, season=2026, week=week, posteam=posteam, defteam=defteam)
+        row.update(EXTRA.get(row["play_id"], {}))
         out.append(row)
     return out
 
@@ -124,29 +168,28 @@ def _generic(game_id: str, week: int, posteam: str, defteam: str, base: int, sca
 
 def _clock(rows: list[dict], home: str) -> list[dict]:
     """Game order (fixed_drive, play_id), a quarter and clock per play, a description, and the running score the way
-    nflverse carries it (the score *before* the play): a 'Touchdown' drive adds 7 for its offense once it ends, and
-    the last drive's scoring lands on the final score. WAS drive 3 is the only touchdown in the hand-built game
-    (27–20 final, so the remaining points are notional and land after the last play)."""
+    nflverse carries it: `total_*_score` is the score *after* the play and `posteam_score` / `defteam_score` the score
+    before it. A 'Touchdown' drive adds 7 for its offense on its last play; the last drive's scoring lands on the final
+    score. WAS drive 3 is the only touchdown in the hand-built game (27–20 final, so the remaining points are notional
+    and land after the last play)."""
     rows = sorted(rows, key=lambda r: (r["fixed_drive"], r["play_id"]))
     hs = as_ = 0
-    prev_drive = None
     for i, r in enumerate(rows):
-        if prev_drive is not None and r["fixed_drive"] != prev_drive:
-            last = next(p for p in reversed(rows[:i]) if p["fixed_drive"] == prev_drive)
-            if last["fixed_drive_result"] == "Touchdown":
-                if last["posteam"] == home:
-                    hs += 7
-                else:
-                    as_ += 7
-        prev_drive = r["fixed_drive"]
+        pre_home, pre_away = hs, as_
+        last_of_drive = i + 1 == len(rows) or rows[i + 1]["fixed_drive"] != r["fixed_drive"]
+        if last_of_drive and r["fixed_drive_result"] == "Touchdown":
+            if r["posteam"] == home:
+                hs += 7
+            else:
+                as_ += 7
         r.update(
             qtr=1 + min(i // 5, 3),
             game_seconds_remaining=3600 - 200 * i,
             desc=f"({r['play_type']}) play {r['play_id']}",
             total_home_score=hs,
             total_away_score=as_,
-            posteam_score=hs if r["posteam"] == home else as_,
-            defteam_score=as_ if r["posteam"] == home else hs,
+            posteam_score=pre_home if r["posteam"] == home else pre_away,
+            defteam_score=pre_away if r["posteam"] == home else pre_home,
         )
     return rows
 
@@ -156,7 +199,35 @@ def plays_frame() -> pl.DataFrame:
     scale = {"WAS": 1.0, "PHI": 1.6, "DAL": 1.3, "NYG": 0.4, "KC": 1.9, "BUF": 0.7}
     for gid, week, away, home, _, _, _ in GAMES[1:5]:
         rows += _generic(gid, week, home, away, 100, scale[home]) + _generic(gid, week, away, home, 200, scale[away])
-    return pl.DataFrame(rows)
+    return pl.DataFrame(rows, infer_schema_length=None)
+
+
+def ftn_frame() -> pl.DataFrame:
+    return pl.DataFrame(
+        [
+            {
+                "game_id": G1,
+                "play_id": pid,
+                "season": 2026,
+                "week": 1,
+                "qb_location": loc,
+                "n_defense_box": box,
+                "n_pass_rushers": rushers,
+                "n_blitzers": blitzers,
+                "is_play_action": pa,
+                "is_screen_pass": screen,
+                "is_rpo": rpo,
+                "is_motion": motion,
+            }
+            for pid, loc, box, rushers, blitzers, pa, screen, rpo, motion in FTN
+        ]
+    )
+
+
+def insight_players_frame() -> pl.DataFrame:
+    return pl.DataFrame(
+        [{"gsis_id": g, "display_name": n, "position": p, "latest_team": t} for g, n, p, t in INSIGHT_PLAYERS]
+    )
 
 
 def games_frame() -> pl.DataFrame:
@@ -209,6 +280,8 @@ def seed(tmp_path) -> str:  # noqa: ANN001
         upsert(conn, schema.teams, teams_frame(), ["team_abbr"])
         upsert(conn, schema.Game.__table__, games_frame(), ["game_id"])
         upsert(conn, schema.plays, plays_frame(), ["game_id", "play_id"])
+        upsert(conn, schema.ftn_charting, ftn_frame(), ["game_id", "play_id"])
+        upsert(conn, schema.players, insight_players_frame(), ["gsis_id"])
         upsert(conn, schema.team_game_stats, team_game_stats_frame(), ["team", "game_id"])
         from tests import seed_gm
 

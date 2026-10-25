@@ -216,6 +216,34 @@ plays = Table(
     schema="nfl",
 )
 
+# FTN charting (nflverse `load_ftn_charting`, 2022+): the pre-snap picture and the throw for every scrimmage play,
+# keyed like `plays` (the loader renames nflverse_game_id / nflverse_play_id). The `is_*` flags are 0/1 integers like
+# the pbp flags. nflverse writes "0" / 0 for `qb_location` and the counts on non-scrimmage rows (kickoffs, punts), so
+# readers keep `qb_location in ('U', 'S', 'P')` and `n_defense_box >= 3`.
+FTN_COUNTS = "n_offense_backfield n_defense_box n_blitzers n_pass_rushers"
+FTN_FLAGS = (
+    "is_no_huddle is_motion is_play_action is_screen_pass is_rpo is_trick_play is_qb_out_of_pocket "
+    "is_interception_worthy is_throw_away is_catchable_ball is_contested_ball is_created_reception is_drop "
+    "is_qb_sneak is_qb_fault_sack"
+)
+ftn_charting = Table(
+    "ftn_charting",
+    metadata,
+    Column("game_id", Text, primary_key=True),
+    Column("play_id", Integer, primary_key=True),
+    Column("season", Integer, nullable=False),
+    Column("week", Integer),
+    Column("ftn_game_id", Integer),
+    Column("ftn_play_id", Integer),
+    Column("starting_hash", Text),
+    Column("qb_location", Text),
+    Column("read_thrown", Text),
+    *_cols(FTN_COUNTS, dict.fromkeys(FTN_COUNTS.split(), Integer)),
+    *_cols(FTN_FLAGS, dict.fromkeys(FTN_FLAGS.split(), Integer)),
+    Index("ix_ftn_season", "season"),
+    schema="nfl",
+)
+
 _pgs_ints = "season week completions attempts passing_yards passing_tds passing_interceptions sacks_suffered carries rushing_yards rushing_tds receptions targets receiving_yards receiving_tds"
 player_game_stats = Table(
     "player_game_stats",
@@ -517,6 +545,7 @@ MIRRORS: dict[str, Table] = {
         players,
         Game.__table__,
         plays,
+        ftn_charting,
         player_game_stats,
         team_game_stats,
         snap_counts,

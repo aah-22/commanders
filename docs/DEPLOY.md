@@ -53,6 +53,7 @@ curl -sI https://commanders.caabi.dev/healthz | head -1     # 200
 curl -s  https://commanders.caabi.dev/api/ready               # {"status":"ok","database":true}
 curl -s  https://commanders.caabi.dev/api/v1/meta/freshness   # season/week the data runs through
 curl -s  https://commanders.caabi.dev/api/v1/season/2026/summary | head -c 400   # standing + weekly rows for WAS
+curl -s  https://commanders.caabi.dev/api/v1/games/2026_06_WAS_SF/insights | head -c 400   # "charted": true once FTN is in
 ```
 Migrations run at API start (`0003` adds `nfl.team_game_stats`, `gm.team_game_summary`, `gm.standings` and
 `plays.qb_epa`). On a database ingested before phase 2, run once from the resource terminal:
@@ -74,3 +75,7 @@ Loki: `{job="docker"} |= "ingest complete"`.
 - Phase 4 bootstrap on a database ingested before it (migration `0005` runs at API start): from the api container
   `python -m ingest.run --full --jobs derive`, then `python -m models.train --all` and `python -m models.score`.
   The scheduled `weekly-train`, `weekly-evaluate` and `nightly-score` tasks keep them fresh from then on.
+- Game insights bootstrap (migration `0006` adds `nfl.ftn_charting` at API start): from the api container
+  `python -m ingest.run --full --seasons 2022-2026 --jobs ftn_charting` (FTN publishes charting from 2022; about
+  200 kB per season, a minute in all). `nightly-ingest` carries the current season from then on. The page works
+  before the backfill: the FTN-backed rows read "not charted yet" until it has run.

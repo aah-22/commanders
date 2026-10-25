@@ -75,6 +75,64 @@ def test_plays_keep_only_the_site_columns_and_never_odds(conn):
     assert conn.execute(text("SELECT count(*) FROM plays WHERE posteam='WAS'")).scalar() == 2
 
 
+def test_ftn_charting_is_keyed_like_plays_with_integer_flags(conn):
+    """nflverse keys FTN rows by nflverse_game_id / nflverse_play_id and ships the flags as booleans; the mirror uses the
+    `plays` key and 0/1 so the API sums them, keeps the "0" alignment sentinel raw and drops rows without a play id."""
+    n = 3
+    raw = pl.DataFrame(
+        {
+            "ftn_game_id": [1] * n,
+            "nflverse_game_id": ["2026_06_WAS_SF"] * n,
+            "season": [2026] * n,
+            "week": [6] * n,
+            "ftn_play_id": [10, 11, 12],
+            "nflverse_play_id": [41, 64, None],
+            "starting_hash": ["M", "L", "R"],
+            "qb_location": ["0", "S", "U"],
+            "n_offense_backfield": [0, 1, 2],
+            "n_defense_box": [0, 6, 7],
+            "is_no_huddle": [False, True, False],
+            "is_motion": [False, True, True],
+            "is_play_action": [False, True, False],
+            "is_screen_pass": [False] * n,
+            "is_rpo": [False, False, True],
+            "is_trick_play": [False] * n,
+            "is_qb_out_of_pocket": [False] * n,
+            "is_interception_worthy": [False] * n,
+            "is_throw_away": [False] * n,
+            "read_thrown": ["0", "1", "CHK"],
+            "is_catchable_ball": [False, True, False],
+            "is_contested_ball": [False] * n,
+            "is_created_reception": [False] * n,
+            "is_drop": [False] * n,
+            "is_qb_sneak": [False] * n,
+            "n_blitzers": [0, 1, 0],
+            "n_pass_rushers": [0, 5, 4],
+            "is_qb_fault_sack": [False] * n,
+            "date_pulled": ["2026-10-24"] * n,
+        }
+    )
+    out = loaders.ftn_charting(raw)
+    assert out.columns[:2] == ["game_id", "play_id"]
+    assert "nflverse_play_id" not in out.columns and "date_pulled" not in out.columns
+    assert out.height == 2  # the row without a play id is dropped
+    assert out.schema["is_play_action"] == pl.Int64 and out["is_play_action"].to_list() == [0, 1]
+    assert out["qb_location"].to_list() == ["0", "S"]
+    assert upsert(conn, schema.MIRRORS["ftn_charting"], out, ["game_id", "play_id"]) == 2
+    rows = conn.execute(text("SELECT play_id, is_motion, n_pass_rushers FROM ftn_charting ORDER BY play_id")).all()
+    assert rows == [(41, 0, 0), (64, 1, 5)]
+
+
+def test_ftn_charting_is_skipped_before_2022(monkeypatch, tmp_path):
+    from ingest.run import Ingest
+
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    ing = Ingest(conn=None, tracker=None)
+    ing._players = pl.DataFrame({"pfr_id": ["a"], "gsis_id": ["1"]})
+    ing.season_job("ftn_charting", 2021)  # nflreadpy raises for seasons before 2022
+    assert ing.skipped == ["ftn_charting:2021"] and ing.rows == {}
+
+
 def test_contracts_flatten_and_unnest_season_history():
     raw = pl.DataFrame(
         {

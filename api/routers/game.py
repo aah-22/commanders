@@ -1,4 +1,5 @@
-"""/v1/games/{game_id} (header, drives, win probability, down × distance) and /v1/games/{game_id}/plays (filtered)."""
+"""/v1/games/{game_id} (header, drives, win probability, down × distance), /v1/games/{game_id}/plays (filtered) and
+/v1/games/{game_id}/insights (both teams against the league, scoring, the biggest swings, the players)."""
 
 from __future__ import annotations
 
@@ -11,8 +12,9 @@ from api import db
 from api.cache import cached
 from api.config import get_settings
 from api.queries import game as q
+from api.queries import insights as ins
 from api.routers.season import TEAM_RE
-from api.schemas.game import Bucket, GameDetail, GamePlays, PlayKind
+from api.schemas.game import Bucket, GameDetail, GameInsights, GamePlays, PlayKind, PlayTag
 
 router = APIRouter(prefix="/v1/games", tags=["games"])
 GAME_RE = re.compile(r"^\d{4}_\d{2}_[A-Z]{2,3}_[A-Z]{2,3}$")
@@ -48,6 +50,17 @@ async def game_detail(request: Request, response: Response, game_id: str, team: 
         )
 
 
+@router.get("/{game_id}/insights", response_model=GameInsights)
+@cached
+async def game_insights(request: Request, response: Response, game_id: str, team: str | None = None) -> GameInsights:
+    if team and not TEAM_RE.match(team):
+        raise HTTPException(422, "team must be a 2–3 letter upper-case abbreviation")
+    with db.engine().connect() as conn:
+        g = _game_or_404(conn, game_id)
+        focus = q.focus_team(g, team or get_settings().team)
+        return GameInsights(**ins.build(conn, g, focus, q.plays(conn, game_id)))
+
+
 @router.get("/{game_id}/plays", response_model=GamePlays)
 @cached
 async def game_plays(  # noqa: PLR0913
@@ -60,8 +73,21 @@ async def game_plays(  # noqa: PLR0913
     rz: bool = False,
     drive: Annotated[int | None, Query(ge=1)] = None,
     type: PlayKind = "all",  # noqa: A002
+    qtr: Annotated[int | None, Query(ge=1, le=5)] = None,
+    tag: PlayTag | None = None,
 ) -> GamePlays:
     with db.engine().connect() as conn:
         _game_or_404(conn, game_id)
-        rows = q.plays(conn, game_id, posteam=posteam, down=down, distance=distance, rz=rz, drive=drive, kind=type)
+        rows = q.plays(
+            conn,
+            game_id,
+            posteam=posteam,
+            down=down,
+            distance=distance,
+            rz=rz,
+            drive=drive,
+            kind=type,
+            qtr=qtr,
+            tag=tag,
+        )
         return GamePlays(game_id=game_id, total=len(rows), plays=rows)

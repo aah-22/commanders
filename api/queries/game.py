@@ -3,7 +3,7 @@ plays in Python, and the win-probability trace. A game is at most ~200 rows, so 
 
 from __future__ import annotations
 
-from sqlalchemy import and_, select
+from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy.engine import Connection
 
 from api.queries.season import down_distance
@@ -12,6 +12,7 @@ from ingest.derive.filters import DISTANCE_BUCKETS
 
 G = schema.Game.__table__
 P = schema.plays
+F = schema.ftn_charting
 
 SCRIMMAGE = ("pass", "run")
 SPECIAL = ("kickoff", "punt", "field_goal", "extra_point")
@@ -21,6 +22,7 @@ PLAY_COLUMNS = [
     "fixed_drive",
     "qtr",
     "game_seconds_remaining",
+    "half_seconds_remaining",
     "posteam",
     "defteam",
     "down",
@@ -33,10 +35,13 @@ PLAY_COLUMNS = [
     "epa",
     "wp",
     "wpa",
+    "xpass",
     "success",
     "first_down",
     "touchdown",
     "sack",
+    "qb_hit",
+    "qb_scramble",
     "interception",
     "fumble_lost",
     "penalty",
@@ -49,12 +54,49 @@ PLAY_COLUMNS = [
     "run_location",
     "air_yards",
     "yards_after_catch",
+    "series",
+    "passer_player_id",
+    "rusher_player_id",
+    "receiver_player_id",
     "posteam_score",
     "defteam_score",
     "total_home_score",
     "total_away_score",
     "fixed_drive_result",
 ]
+# FTN charting columns joined onto every play (null when the play has no charting row)
+FTN_COLUMNS = [
+    "qb_location",
+    "n_defense_box",
+    "n_pass_rushers",
+    "n_blitzers",
+    "read_thrown",
+    "is_play_action",
+    "is_screen_pass",
+    "is_rpo",
+    "is_motion",
+    "is_qb_out_of_pocket",
+    "is_drop",
+    "is_interception_worthy",
+    "is_throw_away",
+]
+# `tag` → the one-tap narrowings of the play list (api/schemas/game.py `PlayTag`)
+TAGS = {
+    "play_action": F.c.is_play_action == 1,
+    "screen": F.c.is_screen_pass == 1,
+    "rpo": F.c.is_rpo == 1,
+    "motion": F.c.is_motion == 1,
+    "blitz": F.c.n_blitzers >= 1,
+    "light_box": F.c.n_defense_box.between(3, 6),
+    "pressure": or_(P.c.sack == 1, P.c.qb_hit == 1),
+    "scramble": P.c.qb_scramble == 1,
+    "explosive": or_(
+        and_(P.c.play_type == "pass", P.c.yards_gained >= 20), and_(P.c.play_type == "run", P.c.yards_gained >= 12)
+    ),
+    "no_huddle": P.c.no_huddle == 1,
+    "penalty": P.c.penalty == 1,
+    "big_swing": func.abs(P.c.wpa) >= 0.10,
+}
 
 
 def game(conn: Connection, game_id: str) -> dict | None:
@@ -62,7 +104,7 @@ def game(conn: Connection, game_id: str) -> dict | None:
     return dict(row._mapping) if row else None
 
 
-def plays(
+def plays(  # noqa: PLR0913
     conn: Connection,
     game_id: str,
     *,
@@ -72,9 +114,20 @@ def plays(
     rz: bool = False,
     drive: int | None = None,
     kind: str = "all",
+    qtr: int | None = None,
+    tag: str | None = None,
 ) -> list[dict]:
-    """The game's plays in game order, narrowed by the explorer's filters (all optional)."""
-    stmt = select(*[P.c[c] for c in PLAY_COLUMNS]).where(P.c.game_id == game_id)
+    """The game's plays in game order with their FTN charting columns, narrowed by the explorer's filters (all
+    optional; `qtr` 5 is overtime, `tag` one of `TAGS`). `charted` says whether a charting row was found."""
+    stmt = (
+        select(
+            *[P.c[c] for c in PLAY_COLUMNS],
+            *[F.c[c] for c in FTN_COLUMNS],
+            case((F.c.play_id.is_not(None), 1), else_=0).label("charted"),
+        )
+        .select_from(P.outerjoin(F, and_(P.c.game_id == F.c.game_id, P.c.play_id == F.c.play_id)))
+        .where(P.c.game_id == game_id)
+    )
     if posteam:
         stmt = stmt.where(P.c.posteam == posteam)
     if down:
@@ -89,27 +142,46 @@ def plays(
     types = PLAY_TYPES[kind]
     if types:
         stmt = stmt.where(P.c.play_type.in_(types))
+    if qtr:
+        stmt = stmt.where(P.c.qtr >= 5) if qtr >= 5 else stmt.where(P.c.qtr == qtr)
+    if tag:
+        stmt = stmt.where(TAGS[tag])
     stmt = stmt.order_by(P.c.fixed_drive, P.c.play_id)
     return [dict(r._mapping) for r in conn.execute(stmt)]
 
 
-def _score(row: dict, team: str, g: dict) -> int | None:
-    col = "total_home_score" if team == g["home_team"] else "total_away_score"
-    return row.get(col)
+def running_scores(rows: list[dict]) -> list[tuple[int, int]]:
+    """The score after each play as (home, away). nflverse's `total_home_score` / `total_away_score` are the score
+    after the play, but a dead-ball row (the kickoff after a field goal, END QUARTER, a timeout) sometimes still carries
+    the score from before it, so the running maximum is the honest reading; scores never go down."""
+    out: list[tuple[int, int]] = []
+    home = away = 0
+    for r in rows:
+        home = max(home, r.get("total_home_score") or 0)
+        away = max(away, r.get("total_away_score") or 0)
+        out.append((home, away))
+    return out
+
+
+def _pick(pair: tuple[int, int], team: str | None, g: dict) -> int:
+    return pair[0] if team == g["home_team"] else pair[1]
 
 
 def drives(rows: list[dict], g: dict) -> list[dict]:
-    """One row per fixed_drive. `points` is what the offense put up on the drive (the score at the next drive's first
-    play, or the final score for the last drive, minus the score at this drive's first play); `points_against` catches a
-    defensive score on the same drive. Play, yard and EPA counts cover pass and run plays only."""
-    by_drive: dict[int, list[dict]] = {}
-    for r in rows:
+    """One row per fixed_drive. nflverse's `total_home_score` / `total_away_score` are the score after each play, so
+    `points` is the offense's total after the drive's last play (the final score for the last drive) minus its total
+    after the play before the drive began; `points_against` catches a defensive score on the same drive. Play, yard and
+    EPA counts cover pass and run plays only. `rows` must be in game order (fixed_drive, play_id), as `plays` returns."""
+    by_drive: dict[int, list[int]] = {}
+    for i, r in enumerate(rows):
         if r["fixed_drive"] is not None:
-            by_drive.setdefault(r["fixed_drive"], []).append(r)
+            by_drive.setdefault(r["fixed_drive"], []).append(i)
     ordered = sorted(by_drive)
+    run = running_scores(rows)
     out = []
-    for i, d in enumerate(ordered):
-        ps = sorted(by_drive[d], key=lambda r: r["play_id"])
+    for n, d in enumerate(ordered):
+        idx = sorted(by_drive[d], key=lambda i: rows[i]["play_id"])
+        ps = [rows[i] for i in idx]
         first, last = ps[0], ps[-1]
         team = next((p["posteam"] for p in ps if p["posteam"]), None)
         opp = g["away_team"] if team == g["home_team"] else g["home_team"]
@@ -117,13 +189,10 @@ def drives(rows: list[dict], g: dict) -> list[dict]:
         start = next(
             (p["yardline_100"] for p in ps if p["play_type"] != "kickoff" and p["yardline_100"] is not None), None
         )
-        if i + 1 < len(ordered):
-            nxt = sorted(by_drive[ordered[i + 1]], key=lambda r: r["play_id"])[0]
-            after_for, after_against = _score(nxt, team, g), _score(nxt, opp, g)
-        else:
-            final = {"total_home_score": g["home_score"], "total_away_score": g["away_score"]}
-            after_for, after_against = _score(final, team, g), _score(final, opp, g)
-        before_for, before_against = _score(first, team, g), _score(first, opp, g)
+        after = run[idx[-1]] if n + 1 < len(ordered) else (g["home_score"], g["away_score"])
+        before = run[idx[0] - 1] if idx[0] > 0 else (0, 0)
+        after_for, after_against = _pick(after, team, g), _pick(after, opp, g)
+        before_for, before_against = _pick(before, team, g), _pick(before, opp, g)
         points = after_for - before_for if None not in (after_for, before_for) else None
         against = after_against - before_against if None not in (after_against, before_against) else None
         epa = [p["epa"] for p in scrim if p["epa"] is not None]
