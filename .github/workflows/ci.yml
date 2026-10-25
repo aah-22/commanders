@@ -10,9 +10,14 @@ permissions:
   contents: read
 
 # Sonar and the Coolify webhook only run once their secrets exist, so a fresh fork/clone stays green.
+# coolify.caabi.dev sits behind Cloudflare Access, so the deploy call carries an Access service token as well as
+# Coolify's own API token (see docs/DEPLOY.md §6).
 env:
   SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
   COOLIFY_WEBHOOK_URL: ${{ secrets.COOLIFY_WEBHOOK_URL }}
+  COOLIFY_API_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
+  CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+  CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
 
 jobs:
   quality-python:
@@ -130,6 +135,14 @@ jobs:
     if: github.ref == 'refs/heads/main'
     steps:
       - name: Trigger Coolify deployment
-        if: env.COOLIFY_WEBHOOK_URL != ''
+        if: env.COOLIFY_WEBHOOK_URL != '' && env.COOLIFY_API_TOKEN != ''
+        # Cloudflare Access answers an unauthenticated call with its sign-in page and HTTP 200, so curl -f alone would
+        # pass without deploying; the step only passes when Coolify says it queued a deployment.
         run: |
-          curl -sf -X POST "$COOLIFY_WEBHOOK_URL" -H "Content-Type: application/json"
+          body=$(curl -s -X POST "$COOLIFY_WEBHOOK_URL" \
+            -H "Authorization: Bearer $COOLIFY_API_TOKEN" \
+            -H "CF-Access-Client-Id: $CF_ACCESS_CLIENT_ID" \
+            -H "CF-Access-Client-Secret: $CF_ACCESS_CLIENT_SECRET" \
+            -H "Content-Type: application/json" -H "Accept: application/json")
+          echo "${body:0:300}"
+          echo "$body" | grep -q '"deployments"' || { echo "::error::Coolify did not queue a deployment (Cloudflare Access sign-in page or an API error above)"; exit 1; }

@@ -61,7 +61,31 @@ Migrations run at API start (`0003` adds `nfl.team_game_stats`, `gm.team_game_su
 `python -m ingest.run --full --jobs team_game_stats,derive`. The nightly run derives on its own from then on.
 Loki: `{job="docker"} |= "ingest complete"`.
 
-## 5. Ops notes
+## 5. Deploying a merge
+
+Two ways; pick one.
+
+**Manual (what happens today):** Coolify → resource `commanders` → **Redeploy** (or Advanced → force without cache
+after a Dockerfile or dependency change). The resource reads `main` through the official GitHub App, so a redeploy
+always builds the latest merge. Nothing in CI deploys unless the secrets below exist.
+
+**From CI (the `deploy` job on `main`, after the images and Sonar pass):** `coolify.caabi.dev` is behind
+Cloudflare Access, so the job needs four repository secrets (Settings → Secrets and variables → Actions):
+
+| secret | where it comes from |
+|---|---|
+| `COOLIFY_WEBHOOK_URL` | the resource's Webhooks tab, "Deploy Webhook": `https://coolify.caabi.dev/api/v1/deploy?uuid=<resource uuid>&force=false` (`force=true` to rebuild without cache) |
+| `COOLIFY_API_TOKEN` | Coolify → profile → Keys & Tokens → API tokens → create one with deploy permission |
+| `CF_ACCESS_CLIENT_ID`, `CF_ACCESS_CLIENT_SECRET` | Cloudflare Zero Trust → Access → Service Auth → create a service token, then add a "Service Auth" rule for it to the Access application that protects `coolify.caabi.dev` (the same mechanism the API image uses for MLflow) |
+
+The step posts to the webhook with the Access headers and the bearer token and passes only when Coolify answers
+with a `deployments` list; the Access sign-in page (HTTP 200, HTML) or a 401 fails the job visibly. Without the
+secrets the step is skipped and the job still passes.
+
+Simpler still, with no secrets: turn on **Auto Deploy** in the resource's Git Source settings, and every push to
+`main` deploys straight away. That skips the CI gates (Trivy, tests), so the manual or CI route is preferred.
+
+## 6. Ops notes
 - The read-only role: `db/init/01_roles.sql` only runs on a brand-new data directory and only when Coolify keeps
   the `./db/init` bind mount (it did not on the first deploy). The api container therefore runs
   `python -m db.ensure_ro_role` after the migrations on every start: it creates or repairs the role named in
