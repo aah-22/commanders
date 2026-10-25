@@ -1,4 +1,4 @@
-import { Component, computed, input } from '@angular/core';
+import { Component, computed, input, ChangeDetectionStrategy } from '@angular/core';
 import { NgxEchartsDirective } from 'ngx-echarts';
 import type { EChartsCoreOption } from 'echarts/core';
 import { AcquisitionCard } from '../../core/api.service';
@@ -21,6 +21,7 @@ const GRADE_COLOR: Record<string, string> = { A: '#c9a233', B: '#e0c069', C: '#8
       }
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styles: `
     .chart { height: 320px; }
   `,

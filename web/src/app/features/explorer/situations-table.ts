@@ -1,4 +1,4 @@
-import { Component, computed, input } from '@angular/core';
+import { Component, computed, input, ChangeDetectionStrategy } from '@angular/core';
 import { Stat, TeamInsights } from '../../core/api.service';
 import { fmtStat } from '../../core/format';
 import { tone } from './matchup-compare';
@@ -29,6 +29,7 @@ import { tone } from './matchup-compare';
       </div>
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styles: `
     .scroll { overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 0.9rem; }

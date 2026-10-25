@@ -1,4 +1,4 @@
-import { Component, computed, input, signal } from '@angular/core';
+import { Component, computed, input, signal, ChangeDetectionStrategy } from '@angular/core';
 import { Split, Stat, TeamInsights } from '../../core/api.service';
 import { fmtDelta, fmtRate1, fmtStat } from '../../core/format';
 import { tone } from './matchup-compare';
@@ -97,6 +97,7 @@ const CHARTED = new Set([
       </details>
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styles: `
     .head { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
     .seg { display: inline-flex; border: 1px solid var(--line-2); border-radius: 999px; overflow: hidden; }

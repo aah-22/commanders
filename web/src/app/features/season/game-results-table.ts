@@ -1,4 +1,4 @@
-import { Component, input } from '@angular/core';
+import { Component, input, ChangeDetectionStrategy } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { GameRow } from '../../core/api.service';
 import { fmtEpa, fmtPct, fmtSignedPct } from '../../core/format';
@@ -50,6 +50,7 @@ import { fmtEpa, fmtPct, fmtSignedPct } from '../../core/format';
       }
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styles: `
     .scroll { overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; white-space: nowrap; }

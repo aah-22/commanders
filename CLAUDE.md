@@ -35,7 +35,8 @@ Read `docs/commanders-build-guide.md` first; it is the source of truth for archi
 - `db/` SQLAlchemy 2.0 ORM (`db/schema.py`) + Alembic migrations (`alembic upgrade head` runs at API start).
   Schemas `nfl` (raw mirrors), `gm` (derived), `ml` (model outputs), `ops` (pipeline runs). On SQLite (tests)
   schemas collapse to plain tables.
-- `web/` Angular 20 (standalone components, signals, lazy routes, ngx-echarts on `echarts/core`), served by
+- `web/` Angular 22 (standalone components, signals, OnPush on every component, lazy routes, ngx-echarts on
+  `echarts/core`; Node 24 in the Dockerfile and CI), served by
   nginx-unprivileged which proxies `/api/` to the API so the site is same-origin. Palette: gold `#c9a233` on `#0a0a0a`.
   ECharts is registered once in `core/echarts-setup.ts` (app config and specs both call `registerEcharts()`); every
   chart has a "Table view" twin; fixtures live in `features/<page>/testing/`. The game page (`features/explorer/`,

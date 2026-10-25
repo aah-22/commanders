@@ -1,4 +1,4 @@
-import { Component, input } from '@angular/core';
+import { Component, input, ChangeDetectionStrategy } from '@angular/core';
 
 /** One number with its label and an optional delta line, the building block of every dashboard row. */
 @Component({
@@ -12,6 +12,7 @@ import { Component, input } from '@angular/core';
       }
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styles: `
     .tile { text-align: left; }
     .label { color: var(--muted); font-size: 0.8rem; }

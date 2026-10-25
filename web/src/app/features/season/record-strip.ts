@@ -1,4 +1,4 @@
-import { Component, computed, input } from '@angular/core';
+import { Component, computed, input, ChangeDetectionStrategy } from '@angular/core';
 import { SeasonSummary } from '../../core/api.service';
 import { fmtEpa, fmtNum, fmtSignedPct, ordinal, record } from '../../core/format';
 import { StatTile } from '../../shared/stat-tile';
@@ -14,6 +14,7 @@ import { StatTile } from '../../shared/stat-tile';
       }
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styles: `
     .strip { grid-template-columns: repeat(2, 1fr); }
     @media (min-width: 700px) { .strip { grid-template-columns: repeat(3, 1fr); } }

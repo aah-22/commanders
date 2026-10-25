@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ApiService } from '../core/api.service';
 
@@ -15,6 +15,7 @@ import { ApiService } from '../core/api.service';
       }
     </p>
   `,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styles: `.fresh { color: var(--muted); font-size: 0.85rem; margin: 0.25rem 0 1rem; }`,
 })
 export class FreshnessBanner {

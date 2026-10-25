@@ -1,4 +1,4 @@
-import { Component, computed, input } from '@angular/core';
+import { Component, computed, input, ChangeDetectionStrategy } from '@angular/core';
 import { NgxEchartsDirective } from 'ngx-echarts';
 import type { EChartsCoreOption } from 'echarts/core';
 import { WinProbPoint } from '../../core/api.service';
@@ -32,6 +32,7 @@ const REGULATION = 3600;
       }
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styles: `
     .chart { height: 280px; }
     table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }

@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, computed, inject } from '@angular/core';
+import { Component, computed, inject, ChangeDetectionStrategy } from '@angular/core';
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { catchError, map, of, switchMap } from 'rxjs';
 import { ApiService, SeasonSummary } from '../../core/api.service';
@@ -67,6 +67,7 @@ export function emptySeason(season: number): SeasonSummary {
       </p>
     }
   `,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   styles: `
     .grid { margin-top: 1rem; }
     .next { margin: 0.5rem 0 0; }
