@@ -318,6 +318,12 @@ every component to keep the old behaviour and wraps template `?.` reads in a `$s
 both were undone: every component is OnPush (angular-eslint 22 requires it, and they read only inputs and signals)
 and the formatters already accept `undefined`. Angular majors reach end of life 18 months after release, so plan the
 next hop before that.
+
+The production build must keep `optimization.styles.inlineCritical: false` (angular.json). With it on, the 22
+toolchain inlines the critical CSS, loads `styles-*.css` with `media="print"` and flips it to `all` from an inline
+`<script>` at the end of index.html; nginx's CSP is `script-src 'self'` with no inline allowance, so that script is
+blocked and the live site rendered with no stylesheet (blue underlined links, no panels) after the first Angular 22
+deploy. The stylesheet is about 1 kB, so inlining gains nothing; loosening the CSP would be the wrong fix.
 Reconciling team EPA with nflverse (verified on all 66 2026 team-games): `stats_team.rushing_epa` is `sum(epa)` over
 `play_type in (run, qb_kneel)` including aborted snaps, and `passing_epa` is `sum(qb_epa)` (not `epa`) over
 `play_type in (pass, qb_spike)` — the two differ on completed passes fumbled away. The `pass`/`rush` flags include
